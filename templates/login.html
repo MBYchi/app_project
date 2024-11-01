@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+
+{% block style %}
+    {% load static %}
+    <link rel="stylesheet" type="text/css" href="{% static 'reg_log/styles.css' %}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css"/>
+{% endblock %}
+
+{% block content %}
+  <div class="content">
+         <div class="text">
+            Login Form
+         </div>
+         <form method="post">
+             {% csrf_token %}
+             <!-- Username Field -->
+            <div class="field">
+               {{ form.username }} <!-- Django form field rendering -->
+               <span class="fas fa-user"></span>
+               <label>Username</label>
+            </div>
+
+            <div class="field">
+               {{ form.password }} <!-- Django form field rendering -->
+               <span class="fas fa-lock"></span>
+               <label>Password</label>
+            </div>
+            <div class="forgot-pass">
+               <a href="#">Forgot Password?</a>
+            </div>
+            <button type="submit">Sign in</button>
+            <div class="sign-up">
+               Not a member?
+               <a href="{% url 'signup' %}">signup now</a>
+            </div>
+         </form>
+      </div>
+{% endblock %}
