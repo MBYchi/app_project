@@ -42,7 +42,8 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'reg_log'
+    'reg_log',
+    'files'
 ]
 
 MIDDLEWARE = [
@@ -132,6 +133,8 @@ STATICFILES_DIRS = [
     BASE_DIR / "static",
 ]
 
+STATIC_ROOT = BASE_DIR / "staticfiles"
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
@@ -146,13 +149,14 @@ EMAIL_PORT = int(os.getenv('EMAIL_PORT'))
 
 
 
-# Учетные данные MinIO
+# account data MinIO
 MINIO_ACCESS_KEY = os.getenv("MINIO_ACCESS_KEY")
 MINIO_SECRET_KEY = os.getenv("MINIO_SECRET_KEY")
 MINIO_ENDPOINT = os.getenv("MINIO_ENDPOINT")
 MINIO_BUCKET_NAME = os.getenv("MINIO_BUCKET_NAME")
+MINIO_ACCESS_URL = os.getenv("MINIO_ACCESS_URL")
 
-# Настройки для django-storages и MinIO
+# setting for django-storages MinIO
 AWS_ACCESS_KEY_ID = MINIO_ACCESS_KEY
 AWS_SECRET_ACCESS_KEY = MINIO_SECRET_KEY
 AWS_STORAGE_BUCKET_NAME = MINIO_BUCKET_NAME
@@ -160,9 +164,23 @@ AWS_S3_ENDPOINT_URL = f"http://{MINIO_ENDPOINT}"
 AWS_S3_USE_SSL = False
 AWS_S3_REGION_NAME = "us-east-1"
 
-# Подключение MinIO в качестве основного хранилища файлов
-DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
-MEDIA_URL = f'http://{MINIO_ENDPOINT}/{MINIO_BUCKET_NAME}/'
+# Connecting the Mini as the main file storage
+MEDIA_URL = f'http://{MINIO_ACCESS_URL}/'
 
-
+STORAGES = {
+    "default": {
+        "BACKEND": "storages.backends.s3.S3Storage",
+        "OPTIONS": {
+            "access_key": AWS_ACCESS_KEY_ID,
+            "secret_key": AWS_SECRET_ACCESS_KEY,
+            "bucket_name": AWS_STORAGE_BUCKET_NAME,
+            "endpoint_url": AWS_S3_ENDPOINT_URL,
+            "region_name": AWS_S3_REGION_NAME,
+            "use_ssl": AWS_S3_USE_SSL,
+        },
+    },
+    "staticfiles": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+}
 
