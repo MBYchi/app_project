@@ -21,6 +21,7 @@ from reg_log import views
 urlpatterns = [
     path('', views.home, name='home'),
     path('admin/', admin.site.urls),
-    path('', include('reg_log.urls'))
+    path('', include('reg_log.urls')),
+    path('', include('files.urls'))
 
 ]
