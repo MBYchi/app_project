@@ -4,19 +4,25 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>File Upload</title>
+    {% load static %}
+    <!-- Подключение CryptoJS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <!-- Подключение пользовательского скрипта -->
+    <script src="{% static 'files/js/scripts.js' %}" defer></script>
 </head>
 <body>
-    <h1>Upload a File</h1>
+    <h1>Upload and Encrypt a File</h1>
 
     <!-- File Upload Form -->
-    <form method="post" enctype="multipart/form-data">
+    <form id="uploadForm">
         {% csrf_token %}
-        
+        <input type="hidden" id="csrfToken" value="{{ csrf_token }}">
+
         <!-- File selection field -->
         <label for="file">Select file to upload:</label>
         <input type="file" id="file" name="file" required>
 
-        <button type="submit">Upload File</button>
+        <button type="button" id="uploadButton">Encrypt and Upload</button>
     </form>
 </body>
 </html>
