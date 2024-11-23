@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>List of Files</title>
+</head>
+<body>
+    <h1>Files in your bucket</h1>
+    {% if files %}
+        <ul>
+            {% for file in files %}
+                <li><a href="{% url 'file_download' file %}">{{ file }}</a></li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p>No files found in your bucket.</p>
+    {% endif %}
+</body>
+</html>

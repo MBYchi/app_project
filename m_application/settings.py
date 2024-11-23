@@ -43,8 +43,22 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'reg_log',
-    'files'
+    'files',
+    #'channels',
 ]
+
+# WebSocket routing configuration
+ASGI_APPLICATION = 'myproject.asgi.application'
+
+# Redis backend for the channel layer
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [("127.0.0.1", 6379)],  # Ensure Redis is running
+        },
+    },
+}
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -61,7 +75,8 @@ ROOT_URLCONF = 'm_application.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [os.path.join(BASE_DIR, 'templates')],
+        'DIRS': [os.path.join(BASE_DIR, 'templates'),
+                 os.path.join(BASE_DIR, 'templates/files')],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -145,9 +160,7 @@ EMAIL_HOST = os.getenv('EMAIL_HOST')
 EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
 # PARSE APPLICATION PASSWORD BELOW
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
-EMAIL_PORT = int(os.getenv('EMAIL_PORT'))
-
-
+EMAIL_PORT = int(os.getenv('EMAIL_PORT', 587))
 
 # account data MinIO
 MINIO_ACCESS_KEY = os.getenv("MINIO_ACCESS_KEY")

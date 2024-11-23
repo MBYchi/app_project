@@ -18,10 +18,11 @@ from django.contrib import admin
 from django.urls import path, include
 from reg_log import views
 
+
 urlpatterns = [
     path('', views.home, name='home'),
     path('admin/', admin.site.urls),
     path('', include('reg_log.urls')),
-    path('', include('files.urls'))
+    path('', include('files.urls')),
 
 ]

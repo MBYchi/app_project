@@ -5,6 +5,13 @@ from django.views import View
 from django.contrib.auth.decorators import login_required
 from django.utils.decorators import method_decorator
 import logging
+import boto3
+from botocore.client import Config
+from django.conf import settings
+from botocore.exceptions import ClientError
+import os
+from django.http import Http404
+
 # The page for uploading files
 @method_decorator(login_required, name='dispatch')
 class FileUploadView(View):
@@ -31,14 +38,91 @@ class FileUploadView(View):
 @method_decorator(login_required, name='dispatch')
 class FileDownloadView(View):
     def get(self, request, file_name):
-        file_path = f"user_{request.user.id}/{file_name}"
+        bucket_name = os.getenv('MINIO_BUCKET_NAME')  # Replace with your S3 bucket name
+        object_name = f"user_{request.user.id}/{file_name}"  # Construct the S3 object key
 
-        # Checking the existence of the file
-        #Нужно подумать
-        # if not default_storage.exists(file_path):
-        #     return JsonResponse({"error": "File not found"}, status=404)
+        try:
+            s3_client = boto3.client(
+                's3',
+                endpoint_url=f"http://{settings.MINIO_ENDPOINT}",
+                aws_access_key_id=settings.MINIO_ACCESS_KEY,
+                aws_secret_access_key=settings.MINIO_SECRET_KEY,
+                config=Config(signature_version='s3v4'),
+                region_name="us-east-1",  # Adjust based on your region
+                use_ssl=settings.AWS_S3_USE_SSL  # Respect SSL setting from your config
+            )
+            # Check if the file exists by attempting to get its metadata
+            s3_client.head_object(Bucket=bucket_name, Key=object_name)
 
-        # get the URL of the file and redirect to it
-        file_url = default_storage.url(file_path)
-        logging.info(f"Attempting to redirect to file URL: {file_url}")
-        return redirect(file_url)
+            # Download the file from S3
+            response = s3_client.get_object(Bucket=bucket_name, Key=object_name)
+            file_data = response['Body'].read()
+            content_type = response['ContentType']  # Get the file's MIME type from S3
+
+            # Build an HTTP response for the file download
+            http_response = HttpResponse(
+                file_data,
+                content_type=content_type
+            )
+            http_response['Content-Disposition'] = f'attachment; filename="{file_name}"'
+            logging.info(f"File '{file_name}' successfully prepared for download.")
+            return http_response
+
+        except ClientError as e:
+            if e.response['Error']['Code'] == '404':
+                logging.error(f"File '{object_name}' not found in bucket '{bucket_name}'.")
+                return JsonResponse({"error": "File not found"}, status=404)
+            else:
+                logging.error(f"Error interacting with S3: {e}")
+                return JsonResponse({"error": "An error occurred while fetching the file"}, status=500)
+
+        except Exception as e:
+            logging.error(f"Unexpected error: {e}")
+            return JsonResponse({"error": "An unexpected error occurred"}, status=500)
+
+
+    # The page for downloading files
+@method_decorator(login_required, name='dispatch')
+class ListFilesMinioView(View):
+    def get(self, request):
+        """
+        Django view to list files in the MinIO bucket using Boto3.
+        """
+        try:
+            # Initialize the Boto3 S3 client
+            s3_client = boto3.client(
+                's3',
+                endpoint_url=f"http://{settings.MINIO_ENDPOINT}",
+                aws_access_key_id=settings.MINIO_ACCESS_KEY,
+                aws_secret_access_key=settings.MINIO_SECRET_KEY,
+                config=Config(signature_version='s3v4'),
+                region_name="us-east-1",  # Adjust based on your region
+                use_ssl=settings.AWS_S3_USE_SSL  # Respect SSL setting from your config
+            )
+
+            # List objects in the MinIO bucket
+            bucket_name = settings.MINIO_BUCKET_NAME
+            folder_prefix = f"user_{request.user.id}/"  # Example folder name in the bucket
+
+            # List objects with a specific prefix (folder)
+            response = s3_client.list_objects_v2(
+                Bucket=bucket_name,
+                Prefix=folder_prefix,  # Filter files inside the folder
+                Delimiter='/'
+            )
+
+            # Prepare a list of file names
+            if 'Contents' in response:
+                files = [
+                    obj["Key"].replace(folder_prefix, "")  # Remove the folder prefix for display
+                    for obj in response["Contents"]
+                ]
+            else:
+                files = []
+
+            # Render the HTML template with the list of files
+            return render(request, 'files/list_files.html', {'files': files})
+
+        except Exception as e:
+            # Render the error message in the HTML
+            raise Http404(f"An error occurred: {str(e)}")
