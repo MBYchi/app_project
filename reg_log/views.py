@@ -17,18 +17,24 @@ def signup(request):
     if request.method == 'POST':
         form = SignupForm(request.POST)
         if form.is_valid():
-            # save form in the memory not in database
+            # Сохранение формы без коммита в базу данных
             user = form.save(commit=False)
             user.is_active = False
             user.save()
+
+            # Создание профиля для пользователя
+            user.profile.activation_token = account_activation_token.make_token(user)  # Генерация токена
+            user.profile.uid_hash = urlsafe_base64_encode(force_bytes(user.pk))  # Генерация хэша
+            user.profile.save()
+
             # to get the domain of the current site
             current_site = get_current_site(request)
             mail_subject = 'Activation link has been sent to your email id'
             message = render_to_string('acc_active_email.html', {
                 'user': user,
                 'domain': current_site.domain,
-                'uid':urlsafe_base64_encode(force_bytes(user.pk)),
-                'token':account_activation_token.make_token(user),
+                'uid': user.profile.uid_hash,
+                'token': user.profile.activation_token,
             })
             to_email = form.cleaned_data.get('email')
             email = EmailMessage(
