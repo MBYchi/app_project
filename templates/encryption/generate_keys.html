@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    {% load static %}
+
+<h2>Generating Keys</h2>
+<p id="status-message">Please wait while we securely generate your keys...</p>
+    <form method="post">
+    {% csrf_token %}
+</form>
+
+<!-- Кнопка, которая изначально скрыта -->
+<div id="redirect-button-container" style="display: none; text-align: center; margin-top: 20px;">
+    <button id="redirect-button" onclick="redirectToBase()">Continue</button>
+</div>
+
+
+<script src="{% static 'encryption/js/generateKeyPair.js' %}"></script>
+<script src="{% static 'encryption/js/uploadPublicKey.js' %}"></script>
+<script>
+// Функция для отображения кнопки после успешного выполнения
+function showRedirectButton() {
+    document.getElementById('status-message').innerText = "Keys generated and uploaded successfully!";
+    const buttonContainer = document.getElementById('redirect-button-container');
+    buttonContainer.style.display = "block";
+}
+
+// Функция для перенаправления
+function redirectToBase() {
+    window.location.href = "{% url 'home' %}"; // Замените 'home' на нужное имя маршрута
+}
+
+// Подключение к событиям генерации и загрузки ключей
+async function processKeys() {
+    try {
+        await generateKeyPair(); // Предполагается, что этот метод асинхронен
+        await uploadPublicKey(); // Предполагается, что этот метод асинхронен
+        showRedirectButton();
+    } catch (error) {
+        console.error("Error during key generation or upload:", error);
+        document.getElementById('status-message').innerText = "An error occurred. Please try again.";
+    }
+}
+
+// Запуск обработки ключей при загрузке страницы
+processKeys();
+</script>
+{% endblock %}
+

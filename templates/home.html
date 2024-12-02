@@ -33,5 +33,12 @@
     {% if request.user.is_authenticated %}
       <p>{{ request.user.username }}</p>
       <a href="{% url 'logout' %}">Logout</a>
+      <!-- Check if the user has keys -->
+      {% if not request.user.profile.public_key %}
+          <div class="alert alert-warning mt-3">
+              <p><strong>Important:</strong> You need to generate your encryption keys to secure your data.</p>
+              <a class="btn btn-primary" href="{% url 'generate_keys' %}">Generate Keys</a>
+          </div>
+      {% endif %}
     {% endif %}
 {% endblock %}
