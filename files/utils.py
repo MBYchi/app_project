@@ -6,3 +6,5 @@ def generate_unique_id(file):
     for chunk in file.chunks():
         hasher.update(chunk)
     return hasher.hexdigest()
+
+
