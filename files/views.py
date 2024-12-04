@@ -86,7 +86,7 @@ class FileDownloadView(View):
             return JsonResponse({"error": "An unexpected error occurred"}, status=500)
 
 
-    # The page for downloading files
+    # The page for downloading filesеасеа
 @method_decorator(login_required, name='dispatch')
 class ListFilesMinioView(View):
     def get(self, request):
