@@ -11,6 +11,11 @@ from django.conf import settings
 from botocore.exceptions import ClientError
 import os
 from django.http import Http404
+from django.views.decorators.csrf import csrf_exempt
+import json
+
+from .models import Room, Access
+
 
 # The page for uploading files
 @method_decorator(login_required, name='dispatch')
@@ -126,3 +131,38 @@ class ListFilesMinioView(View):
         except Exception as e:
             # Render the error message in the HTML
             raise Http404(f"An error occurred: {str(e)}")
+
+
+@login_required
+def get_public_key(request):
+    """Предоставляет публичный ключ текущего пользователя."""
+    public_key = request.user.profile.public_key  # Предполагается, что public_key хранится в модели UserProfile
+    return JsonResponse({"public_key": public_key})
+
+@csrf_exempt
+def create_room(request):
+    if request.method == "POST":
+        data = json.loads(request.body)
+
+        encrypted_name = bytes(data["encrypted_name"])
+        encrypted_description = bytes(data["encrypted_description"])
+        iv = bytes(data["iv"])
+        encrypted_key = bytes(data["encrypted_key"])
+
+        # Создаем комнату
+        room = Room.objects.create(
+            encrypted_name=encrypted_name,
+            encrypted_description=encrypted_description,
+            iv=iv,
+        )
+
+        # Создаем запись в Access
+        Access.objects.create(
+            user=request.user.profile,
+            room=room,
+            encrypted_room_key=encrypted_key,
+            privileges="owner",
+        )
+
+        return JsonResponse({"message": "Room created successfully!"}, status=200)
+    return JsonResponse({"error": "Invalid request"}, status=400)
