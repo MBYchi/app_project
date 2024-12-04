@@ -6,7 +6,7 @@ document.getElementById("create-room-form").addEventListener("submit", async fun
 
     try {
         // Fetch public key
-        const publicKeyPem = await fetchPublicKey();
+        const publicKeyPem = await importPublicKey();
         const publicKey = await importPublicKey(publicKeyPem);
 
         // Generate symmetric key

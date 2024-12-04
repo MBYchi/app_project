@@ -2,7 +2,6 @@
 
 {% block style %}
     {% load static %}
-    <link rel="stylesheet" type="text/css" href="{% static 'css/styles.css' %}">
 {% endblock %}
 
 {% block content %}
@@ -23,6 +22,6 @@
     <p id="status-message" style="display: none;"></p>
 </div>
 
-<script src="{% static 'encryption/js/fetchPublicKey.js' %}"></script>
-<script src="{% static 'encryption/js/createRoom.js' %}"></script>
+<script src="{% static 'files/js/importPublicKey.js' %}"></script>
+<script src="{% static 'files/js/createRoom.js' %}"></script>
 {% endblock %}

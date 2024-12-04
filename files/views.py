@@ -1,3 +1,4 @@
+
 from django.shortcuts import render, redirect
 from django.http import HttpResponse, JsonResponse
 from django.core.files.storage import default_storage
@@ -166,3 +167,10 @@ def create_room(request):
 
         return JsonResponse({"message": "Room created successfully!"}, status=200)
     return JsonResponse({"error": "Invalid request"}, status=400)
+
+@login_required
+def create_room_view(request):
+    """
+    Render the HTML page where users can input data for room creation.
+    """
+    return render(request, 'files/create_room.html')
