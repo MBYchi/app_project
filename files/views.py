@@ -176,3 +176,45 @@ def create_room_view(request):
     Render the HTML page where users can input data for room creation.
     """
     return render(request, 'files/create_room.html')
+
+
+@login_required
+def list_rooms(request):
+    """
+    API to list rooms the user has access to.
+    """
+    user_accesses = Access.objects.filter(user_profile=request.user).select_related("room")
+    rooms_data = []
+
+    for access in user_accesses:
+        room = access.room
+        rooms_data.append({
+            "room_id": room.id,
+            "encrypted_name": room.encrypted_name,
+            "encrypted_description": room.encrypted_description,
+            "encrypted_key": access.encrypted_key,
+            "privileges": access.privileges,
+        })
+
+    return JsonResponse({"rooms": rooms_data}, status=200)
+
+
+@login_required
+def list_rooms_view(request):
+    """
+    Render an HTML page displaying the list of rooms accessible to the logged-in user.
+    """
+    user = request.user
+    access_entries = Access.objects.filter(user_profile=user)
+
+    # Pass encrypted data to the template
+    rooms = [
+        {
+            "encrypted_name": access.room.encrypted_name,
+            "encrypted_description": access.room.encrypted_description,
+            "encrypted_key": access.encrypted_key,
+        }
+        for access in access_entries
+    ]
+
+    return render(request, 'files/list_rooms.html', {"rooms": rooms})
