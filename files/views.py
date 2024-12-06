@@ -140,33 +140,35 @@ def get_public_key(request):
     public_key = request.user.profile.public_key  # Предполагается, что public_key хранится в модели UserProfile
     return JsonResponse({"public_key": public_key})
 
+@login_required()
 @csrf_exempt
 def create_room(request):
     if request.method == "POST":
         data = json.loads(request.body)
 
-        encrypted_name = bytes(data["encrypted_name"])
-        encrypted_description = bytes(data["encrypted_description"])
-        iv = bytes(data["iv"])
-        encrypted_key = bytes(data["encrypted_key"])
+        encrypted_name = data.get("encrypted_name")
+        encrypted_description = data.get("encrypted_description")
+        encrypted_key = data.get("encrypted_key")
 
-        # Создаем комнату
+        if not (encrypted_name and encrypted_description and encrypted_key):
+            return JsonResponse({"message": "Invalid data"}, status=400)
+
         room = Room.objects.create(
             encrypted_name=encrypted_name,
             encrypted_description=encrypted_description,
-            iv=iv,
         )
 
-        # Создаем запись в Access
+        # Step 2: Assign access to the creator with admin privileges
         Access.objects.create(
-            user=request.user.profile,
+            user_profile=request.user,
             room=room,
-            encrypted_room_key=encrypted_key,
-            privileges="owner",
+            encrypted_key=encrypted_key,  # Store the room's symmetric key encrypted with the user's public key
+            privileges="admin",  # Grant admin privileges to the creator
         )
 
-        return JsonResponse({"message": "Room created successfully!"}, status=200)
-    return JsonResponse({"error": "Invalid request"}, status=400)
+        return JsonResponse({"message": "Room created successfully", "room_id": room.id}, status=201)
+
+    return JsonResponse({"message": "Invalid method"}, status=405)
 
 @login_required
 def create_room_view(request):
