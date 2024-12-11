@@ -24,3 +24,16 @@ class Access(models.Model):
 
     def __str__(self):
         return f"Access for {self.user_profile} to Room {self.room.id}"
+
+class File(models.Model):
+    name = models.TextField()
+    path = models.TextField()
+    hash = models.TextField()
+    timestamp = models.DateField()
+
+    def __str__(self):
+        return 'Encrypted File'
+
+class Contains(models.Model):
+    room_id = models.ForeignKey(Room, on_delete=models.CASCADE)
+    file_id = models.ForeignKey(File, on_delete=models.CASCADE)

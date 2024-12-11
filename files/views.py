@@ -166,6 +166,32 @@ def create_room(request):
             privileges="admin",  # Grant admin privileges to the creator
         )
 
+        # Step 3: Create a folder in the MinIO bucket using boto3
+        try:
+            s3_client = boto3.client(
+                "s3",
+                endpoint_url=f"http://{settings.MINIO_ENDPOINT}",
+                aws_access_key_id=settings.MINIO_ACCESS_KEY,
+                aws_secret_access_key=settings.MINIO_SECRET_KEY,
+                config=Config(signature_version="s3v4"),
+                region_name="us-east-1",  # Adjust based on your region
+                use_ssl=settings.AWS_S3_USE_SSL,  # Respect SSL setting from your config
+            )
+
+            # Create an empty object to simulate a "folder" in S3-compatible storage
+            folder_name = f"{room.encrypted_name}/"  # Encrypted name as folder
+            bucket_name = settings.MINIO_BUCKET_NAME
+
+            s3_client.put_object(
+                Bucket=bucket_name,
+                Key=folder_name,  # S3 treats keys ending in "/" as folders
+            )
+
+        except Exception as e:
+            # Rollback room creation if MinIO folder creation fails
+            room.delete()
+            return JsonResponse({"message": f"Error creating folder: {str(e)}"}, status=500)
+
         return JsonResponse({"message": "Room created successfully", "room_id": room.id}, status=201)
 
     return JsonResponse({"message": "Invalid method"}, status=405)
