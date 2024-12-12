@@ -1,76 +1,94 @@
 document.getElementById("create-room-form").addEventListener("submit", async function (e) {
     e.preventDefault();
 
+    const publicKeyString = localStorage.getItem("publicKey");
     const roomName = document.getElementById("room-name").value;
     const roomDescription = document.getElementById("room-description").value;
 
+    if (!publicKeyString) {
+        alert("Public key not found! Please ensure you are logged in.");
+        return;
+    }
+
     try {
-        // Fetch public key
-        const publicKeyPem = await fetchPublicKey();
-        const publicKey = await importPublicKey(publicKeyPem);
+        // Parse the public key
+        const publicKey = JSON.parse(publicKeyString);
 
-        // Generate symmetric key
-        const roomKey = await crypto.subtle.generateKey(
-            { name: "AES-CBC", length: 256 },
-            true,
-            ["encrypt", "decrypt"]
-        );
+        // Generate a symmetric key
+        const symmetricKey = crypto.getRandomValues(new Uint8Array(32));
 
-        // Encrypt room name and description
-        const encryptedName = await encryptData(roomName, roomKey);
-        const encryptedDescription = await encryptData(roomDescription, roomKey);
+        // Encrypt room name and description with symmetric key
+        const encoder = new TextEncoder();
+        const encryptedName = await encryptData(encoder.encode(roomName), symmetricKey);
+        const encryptedDescription = await encryptData(encoder.encode(roomDescription), symmetricKey);
 
-        // Encrypt room key with user's public key
-        const exportedRoomKey = await crypto.subtle.exportKey("raw", roomKey);
-        const encryptedRoomKey = await crypto.subtle.encrypt(
-            { name: "RSA-OAEP" },
-            publicKey,
-            exportedRoomKey
-        );
+        // Encrypt the symmetric key with the user's public key
+        const encryptedKey = await encryptSymmetricKey(symmetricKey, publicKey);
 
-        // Prepare data for server
-        const payload = {
-            encrypted_name: Array.from(new Uint8Array(encryptedName.encrypted)),
-            encrypted_description: Array.from(new Uint8Array(encryptedDescription.encrypted)),
-            iv: Array.from(new Uint8Array(encryptedName.iv)),
-            encrypted_key: Array.from(new Uint8Array(encryptedRoomKey)),
+        // Prepare data to send to the server
+        const data = {
+            encrypted_name: arrayBufferToBase64(encryptedName),
+            encrypted_description: arrayBufferToBase64(encryptedDescription),
+            encrypted_key: arrayBufferToBase64(encryptedKey),
         };
 
-        // Send data to server
+        // Submit data to the server
         const response = await fetch("/api/create-room/", {
             method: "POST",
-            body: JSON.stringify(payload),
-            headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie('csrftoken') },
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": getCsrfToken(),
+            },
+            body: JSON.stringify(data),
         });
 
         if (response.ok) {
             document.getElementById("status-message").style.display = "block";
             document.getElementById("status-message").textContent = "Room created successfully!";
         } else {
-            throw new Error("Failed to create room");
+            const error = await response.json();
+            alert("Failed to create room: " + error.message);
         }
-    } catch (error) {
-        document.getElementById("status-message").style.display = "block";
-        document.getElementById("status-message").textContent = "Error: " + error.message;
+    } catch (err) {
+        console.error("Error creating room:", err);
+        alert("An error occurred while creating the room.");
     }
 });
 
-async function encryptData(data, key) {
-    const encoder = new TextEncoder();
-    const dataBuffer = encoder.encode(data);
-    const iv = crypto.getRandomValues(new Uint8Array(16));
-
-    const encrypted = await crypto.subtle.encrypt(
-        { name: "AES-CBC", iv },
-        key,
-        dataBuffer
-    );
-
-    return { encrypted, iv };
+// Helper functions
+function getCsrfToken() {
+    return document.querySelector('input[name="csrfmiddlewaretoken"]').value;
 }
 
-function getCookie(name) {
-    const value = `; ${document.cookie}`;
-    const parts = value.split(`; ${name}=`);
-    if (parts.length === 2) return parts.pop().split(";").shift();
+async function encryptData(data, key) {
+    const iv = crypto.getRandomValues(new Uint8Array(12)); // Random initialization vector
+    const algorithm = { name: "AES-GCM", iv: iv };
+    const cryptoKey = await crypto.subtle.importKey("raw", key, algorithm, false, ["encrypt"]);
+    const encrypted = await crypto.subtle.encrypt(algorithm, cryptoKey, data);
+    return combineBuffer(iv, encrypted);
+}
+
+async function encryptSymmetricKey(key, publicKey) {
+    const importedKey = await crypto.subtle.importKey(
+        "jwk",
+        publicKey,
+        { name: "RSA-OAEP", hash: "SHA-256" },
+        false,
+        ["encrypt"]
+    );
+    return crypto.subtle.encrypt({ name: "RSA-OAEP" }, importedKey, key);
+}
+
+function combineBuffer(iv, data) {
+    const combined = new Uint8Array(iv.byteLength + data.byteLength);
+    combined.set(iv, 0);
+    combined.set(new Uint8Array(data), iv.byteLength);
+    return combined.buffer;
+}
+
+function arrayBufferToBase64(buffer) {
+    const bytes = new Uint8Array(buffer);
+    let binary = '';
+    bytes.forEach(b => binary += String.fromCharCode(b));
+    return window.btoa(binary);
 }
