@@ -1,18 +1,18 @@
 document.getElementById("create-room-form").addEventListener("submit", async function (e) {
     e.preventDefault();
 
-    const publicKeyString = localStorage.getItem("publicKey");
+    const publicKeyPem = sessionStorage.getItem("publicKey");
     const roomName = document.getElementById("room-name").value;
     const roomDescription = document.getElementById("room-description").value;
 
-    if (!publicKeyString) {
+    if (!publicKeyPem) {
         alert("Public key not found! Please ensure you are logged in.");
         return;
     }
 
     try {
-        // Parse the public key
-        const publicKey = JSON.parse(publicKeyString);
+        // Parse the public key PEM to CryptoKey
+        const publicKey = await pemToCryptoKey(publicKeyPem);
 
         // Generate a symmetric key
         const symmetricKey = crypto.getRandomValues(new Uint8Array(32));
@@ -60,6 +60,25 @@ function getCsrfToken() {
     return document.querySelector('input[name="csrfmiddlewaretoken"]').value;
 }
 
+async function pemToCryptoKey(pem) {
+    const pemHeader = "-----BEGIN KEY-----";
+    const pemFooter = "-----END KEY-----";
+    const pemContents = pem
+        .replace(pemHeader, "")
+        .replace(pemFooter, "")
+        .replace(/\s/g, ""); // Remove line breaks and spaces
+
+    const binaryDer = Uint8Array.from(window.atob(pemContents), c => c.charCodeAt(0));
+
+    return await crypto.subtle.importKey(
+        "spki", // SubjectPublicKeyInfo format
+        binaryDer.buffer,
+        { name: "RSA-OAEP", hash: "SHA-256" },
+        false,
+        ["encrypt"]
+    );
+}
+
 async function encryptData(data, key) {
     const iv = crypto.getRandomValues(new Uint8Array(12)); // Random initialization vector
     const algorithm = { name: "AES-GCM", iv: iv };
@@ -69,14 +88,7 @@ async function encryptData(data, key) {
 }
 
 async function encryptSymmetricKey(key, publicKey) {
-    const importedKey = await crypto.subtle.importKey(
-        "jwk",
-        publicKey,
-        { name: "RSA-OAEP", hash: "SHA-256" },
-        false,
-        ["encrypt"]
-    );
-    return crypto.subtle.encrypt({ name: "RSA-OAEP" }, importedKey, key);
+    return crypto.subtle.encrypt({ name: "RSA-OAEP" }, publicKey, key);
 }
 
 function combineBuffer(iv, data) {

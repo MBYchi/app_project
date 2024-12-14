@@ -1,5 +1,5 @@
 document.addEventListener("DOMContentLoaded", async function () {
-    const privateKeyString = localStorage.getItem("privateKey");
+    const privateKeyString = sessionStorage.getItem("privateKey");
 
     if (!privateKeyString) {
         alert("Private key not found! Please ensure you are logged in.");
@@ -7,15 +7,8 @@ document.addEventListener("DOMContentLoaded", async function () {
     }
 
     try {
-        // Parse and import the private key
-        const privateKeyJWK = JSON.parse(privateKeyString);
-        const privateKey = await crypto.subtle.importKey(
-            "jwk",
-            privateKeyJWK,
-            { name: "RSA-OAEP", hash: "SHA-256" },
-            false,
-            ["decrypt"]
-        );
+        // Import the private key from PEM format
+        const privateKey = await importPrivateKey(privateKeyString);
 
         // Fetch the list of rooms from the server
         const response = await fetch("/api/list-rooms/", {
@@ -25,7 +18,7 @@ document.addEventListener("DOMContentLoaded", async function () {
 
         if (!response.ok) {
             const error = await response.json();
-            alert("Failed to fetch rooms: " + error.message);
+            alert("Failed to fetch rooms: " + (error.message || response.statusText));
             return;
         }
 
@@ -45,7 +38,7 @@ document.addEventListener("DOMContentLoaded", async function () {
                     encryptedKey
                 );
 
-                // Import the symmetric key
+                // Import the symmetric key for AES decryption
                 const aesKey = await crypto.subtle.importKey(
                     "raw",
                     symmetricKey,
@@ -54,15 +47,11 @@ document.addEventListener("DOMContentLoaded", async function () {
                     ["decrypt"]
                 );
 
-                // Decrypt room name
-                const encryptedName = base64ToArrayBuffer(room.encrypted_name);
-                const roomName = decoder.decode(await decryptData(encryptedName, aesKey));
+                // Decrypt room name and description
+                const roomName = await decryptAndDecode(room.encrypted_name, aesKey, decoder);
+                const roomDescription = await decryptAndDecode(room.encrypted_description, aesKey, decoder);
 
-                // Decrypt room description
-                const encryptedDescription = base64ToArrayBuffer(room.encrypted_description);
-                const roomDescription = decoder.decode(await decryptData(encryptedDescription, aesKey));
-
-                // Add room to the list with a future action button
+                // Add room to the list
                 const listItem = document.createElement("li");
                 listItem.className = "list-group-item";
                 listItem.innerHTML = `
@@ -86,6 +75,29 @@ document.addEventListener("DOMContentLoaded", async function () {
         alert("An error occurred while loading rooms.");
     }
 });
+
+// Helper function to import the private key from PEM format
+async function importPrivateKey(pemKey) {
+    const pemHeader = "-----BEGIN KEY-----";
+    const pemFooter = "-----END KEY-----";
+    const pemContents = pemKey.replace(pemHeader, "").replace(pemFooter, "").replace(/\s+/g, "");
+    const binaryDer = base64ToArrayBuffer(pemContents);
+
+    return crypto.subtle.importKey(
+        "pkcs8",
+        binaryDer,
+        { name: "RSA-OAEP", hash: "SHA-256" },
+        false,
+        ["decrypt"]
+    );
+}
+
+// Helper function to decrypt and decode data
+async function decryptAndDecode(encryptedBase64, aesKey, decoder) {
+    const encryptedData = base64ToArrayBuffer(encryptedBase64);
+    const decryptedData = await decryptData(encryptedData, aesKey);
+    return decoder.decode(decryptedData);
+}
 
 // Helper function for decryption
 async function decryptData(data, key) {
