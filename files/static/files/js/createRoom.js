@@ -1,16 +1,21 @@
 document.getElementById("create-room-form").addEventListener("submit", async function (e) {
     e.preventDefault();
 
-    const publicKeyPem = sessionStorage.getItem("publicKey");
+    let publicKeyPem = sessionStorage.getItem("publicKey");
     const roomName = document.getElementById("room-name").value;
     const roomDescription = document.getElementById("room-description").value;
 
-    if (!publicKeyPem) {
-        alert("Public key not found! Please ensure you are logged in.");
-        return;
-    }
-
     try {
+        if (!publicKeyPem) {
+            // Fetch public key from server
+            publicKeyPem = await fetchPublicKeyFromServer();
+            if (!publicKeyPem) {
+                alert("Failed to retrieve public key. Please ensure you are logged in.");
+                return;
+            }
+            sessionStorage.setItem("publicKey", publicKeyPem);
+        }
+
         // Parse the public key PEM to CryptoKey
         const publicKey = await pemToCryptoKey(publicKeyPem);
 
@@ -55,10 +60,32 @@ document.getElementById("create-room-form").addEventListener("submit", async fun
     }
 });
 
+
+
 // Helper functions
 function getCsrfToken() {
     return document.querySelector('input[name="csrfmiddlewaretoken"]').value;
 }
+
+// Fetch the public key from the server
+async function fetchPublicKeyFromServer() {
+    try {
+        const response = await fetch("/api/get-public-key/");
+        if (response.ok) {
+            const data = await response.json();
+            return data.public_key; // Assuming the server returns the key as { "public_key": "<PEM>" }
+        } else {
+            console.error("Failed to fetch public key:", response.statusText);
+            return null;
+        }
+    } catch (error) {
+        console.error("Error fetching public key:", error);
+        return null;
+    }
+}
+
+
+
 
 async function pemToCryptoKey(pem) {
     const pemHeader = "-----BEGIN KEY-----";

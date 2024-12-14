@@ -2,7 +2,7 @@ document.addEventListener("DOMContentLoaded", async function () {
     const privateKeyString = sessionStorage.getItem("privateKey");
 
     if (!privateKeyString) {
-        alert("Private key not found! Please ensure you are logged in.");
+        alert("Private key not found! Please make sure that you have uploaded your private key in this session .");
         return;
     }
 

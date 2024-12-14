@@ -9,5 +9,6 @@ urlpatterns = [
     path('api/create-room/', create_room, name='create_room'),
     path('create-room/', create_room_view, name='create_room_view'),
     path('api/list-rooms/', list_rooms, name='list_rooms'),
-    path('rooms/', list_rooms_view, name="list_rooms_view")
+    path('rooms/', list_rooms_view, name="list_rooms_view"),
+    path('api/get-public-key/', get_public_key, name='get_public_key'),
 ]

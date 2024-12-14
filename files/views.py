@@ -136,9 +136,10 @@ class ListFilesMinioView(View):
 
 @login_required
 def get_public_key(request):
-    """Предоставляет публичный ключ текущего пользователя."""
-    public_key = request.user.profile.public_key  # Предполагается, что public_key хранится в модели UserProfile
-    return JsonResponse({"public_key": public_key})
+    profile = request.user.profile
+    if profile.public_key:
+        return JsonResponse({"public_key": profile.public_key}, status=200)
+    return JsonResponse({"error": "Public key not found."}, status=404)
 
 @login_required()
 @csrf_exempt
@@ -244,3 +245,5 @@ def list_rooms_view(request):
     ]
 
     return render(request, 'files/list_rooms.html', {"rooms": rooms})
+
+
