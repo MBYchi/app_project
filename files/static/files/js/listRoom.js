@@ -2,7 +2,7 @@ document.addEventListener("DOMContentLoaded", async function () {
     const privateKeyString = sessionStorage.getItem("privateKey");
 
     if (!privateKeyString) {
-        alert("Private key not found! Please make sure that you have uploaded your private key in this session .");
+        alert("Private key not found! Please make sure that you have uploaded your private key in this session.");
         return;
     }
 
@@ -30,6 +30,8 @@ document.addEventListener("DOMContentLoaded", async function () {
 
         for (const room of rooms) {
             try {
+                console.log(room.encrypted_key);
+                console.log(typeof room.encrypted_key);
                 // Decrypt the symmetric key using the private key
                 const encryptedKey = base64ToArrayBuffer(room.encrypted_key);
                 const symmetricKey = await crypto.subtle.decrypt(
@@ -62,6 +64,12 @@ document.addEventListener("DOMContentLoaded", async function () {
                     </button>
                 `;
                 roomListContainer.appendChild(listItem);
+
+                // Attach event listener to the button
+                const enterRoomButton = listItem.querySelector(".enter-room");
+                enterRoomButton.addEventListener("click", () => {
+                    handleEnterRoom(room.room_id);
+                });
             } catch (error) {
                 console.error("Failed to decrypt room:", error);
                 const errorItem = document.createElement("li");
@@ -75,6 +83,12 @@ document.addEventListener("DOMContentLoaded", async function () {
         alert("An error occurred while loading rooms.");
     }
 });
+
+// Handle entering a room
+function handleEnterRoom(roomId) {
+    // Redirect to the room's page, e.g., /room/{room_id}/
+    window.location.href = `/room/${roomId}/`;
+}
 
 // Helper function to import the private key from PEM format
 async function importPrivateKey(pemKey) {

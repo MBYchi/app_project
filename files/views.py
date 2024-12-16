@@ -15,7 +15,7 @@ import os
 from django.http import Http404
 from django.views.decorators.csrf import csrf_exempt
 import json
-
+from urllib.parse import quote
 from .models import Room, Access, File
 
 
@@ -181,7 +181,7 @@ def create_room(request):
             )
 
             # Create an empty object to simulate a "folder" in S3-compatible storage
-            folder_name = f"{room.encrypted_name}/"  # Encrypted name as folder
+            folder_name = quote(f"{room.encrypted_name}", safe = '') + "/"  # Encrypted name as folder
             bucket_name = settings.MINIO_BUCKET_NAME
 
             s3_client.put_object(
@@ -268,22 +268,30 @@ class RoomView(View):
 @login_required
 def list_room_files(request, room_id):
     try:
-        print(request.user)
-        # Check user access to the room
+        # Verify user has access to the room
         access = Access.objects.get(user_profile=request.user, room_id=room_id)
-        print('Access granted.')
 
-        # Fetch the files related to the room via the Contains table
-        files = File.objects.filter(contains__room_id=room_id).values("id", "name", "hash")
-        print('Files fetched.')
+        # Fetch files for the room
+        file_records = File.objects.filter(contains__room_id=room_id)
+        if not file_records.exists():
+            return JsonResponse({"message": "There are no files in this room."}, status=200)
 
-        # Return the files as a JSON response
-        return JsonResponse({"files": list(files)}, status=200)
+        # Prepare file metadata to send
+        files = [
+            {
+                "file_id": file.id,
+                "encrypted_name": file.name,  # Already encrypted
+                "hash": file.hash,
+                "timestamp": file.timestamp.strftime("%Y-%m-%d"),
+            }
+            for file in file_records
+        ]
+
+        return JsonResponse({"files": files}, status=200)
 
     except Access.DoesNotExist:
         return JsonResponse({"error": "No access to this room."}, status=403)
     except Exception as e:
-        print(f'Error: {str(e)}')
         return JsonResponse({"error": str(e)}, status=500)
 
 @login_required
@@ -374,5 +382,10 @@ def download_file(request, file_id):
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
-
+@login_required()
+def response_room_key(request, room_id):
+    access = Access.objects.filter(user_profile=request.user, room_id=room_id)
+    print(type(access[0]))
+    print(type(access[0].encrypted_key))
+    return JsonResponse({"encrypted_key" : access[0].encrypted_key})
 

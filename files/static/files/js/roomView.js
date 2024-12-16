@@ -1,55 +1,80 @@
 document.addEventListener("DOMContentLoaded", async function () {
-    try {
-        const roomId = getRoomIdFromURL();
-        console.log("Extracted Room ID:", roomId);
+    const roomId = getRoomIdFromURL();
+    const privateKeyString = sessionStorage.getItem("privateKey");
 
-        if (!roomId) {
-            alert("Room ID not found in the URL.");
+    if (!privateKeyString) {
+        alert("Private key not found! Please upload your private key.");
+        return;
+    }
+
+    try {
+        // Import the user's private key
+        const privateKey = await importPrivateKey(privateKeyString);
+
+        // Fetch room's symmetric key (from sessionStorage or API if necessary)
+
+        const encryptedKey = await getRoomKey(roomId);
+
+        const symmetricKey = await decryptKey(encryptedKey, privateKey);
+        // Fetch files in the room
+        const response = await fetch(`/api/room/${roomId}/files/`, {
+            method: "GET",
+            headers: { "Content-Type": "application/json" },
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            alert("Error fetching files: " + (error.message || response.statusText));
             return;
         }
 
-        const roomResponse = await fetch(`/api/room/${roomId}/files/`);
+        console.log(response);
+        const { files } = await response.json();
 
-        if (!roomResponse.ok) {
-            throw new Error("Failed to fetch room files.");
+        const fileListContainer = document.getElementById("file-list");
+
+        if (!files || files.length === 0) {
+            fileListContainer.innerHTML = "<p>No files in this room.</p>";
+            return;
         }
 
-        const { files, message } = await roomResponse.json();
+        const decoder = new TextDecoder();
 
-        // Handle case when no files are in the room
-        const fileList = document.getElementById("file-list");
-        fileList.innerHTML = "";  // Clear existing list
+        for (const file of files) {
+            try {
+                // Decrypt the file name
+                const decryptedName = await decryptAndDecode(file.encrypted_name, symmetricKey, decoder);
 
-        if (message) {
-            fileList.textContent = message;  // Display "No files in this room"
-        } else {
-            files.forEach(file => {
+                // Display the file
                 const listItem = document.createElement("li");
-                listItem.textContent = file.name;
-
-                const downloadButton = document.createElement("button");
-                downloadButton.textContent = "Download";
-                downloadButton.className = "btn btn-primary";
-
-                downloadButton.addEventListener("click", async () => {
-                    const downloadResponse = await fetch(`/api/room/files/${file.id}/download/`);
-                    const { download_url } = await downloadResponse.json();
-                    window.location.href = download_url;
-                });
-
-                listItem.appendChild(downloadButton);
-                fileList.appendChild(listItem);
-            });
+                listItem.className = "list-group-item";
+                listItem.innerHTML = `
+                    <strong>File Name:</strong> ${decryptedName} <br>
+                    <strong>Hash:</strong> ${file.hash} <br>
+                    <strong>Uploaded On:</strong> ${file.timestamp}
+                `;
+                fileListContainer.appendChild(listItem);
+            } catch (error) {
+                console.error("Error decrypting file:", error);
+                const errorItem = document.createElement("li");
+                errorItem.className = "list-group-item text-danger";
+                errorItem.textContent = "Failed to decrypt file details.";
+                fileListContainer.appendChild(errorItem);
+            }
         }
-
-    } catch (err) {
-        console.error("Error loading room data:", err);
-        alert("An error occurred while loading room data. Please try again.");
+    } catch (error) {
+        console.error("Error loading files:", error);
+        alert("An error occurred while loading files.");
     }
 });
 
+// Helper function: Decrypt the room's symmetric key
+async function decryptKey(encryptedKeyBase64, privateKey) {
+    console.log(encryptedKeyBase64);
+    const encryptedKey = base64ToArrayBuffer(encryptedKeyBase64);
+    return crypto.subtle.decrypt({ name: "RSA-OAEP" }, privateKey, encryptedKey);
+}
 
-// Function to extract Room ID from the URL
 function getRoomIdFromURL() {
     // Ensure the pathname has no trailing slash and split it
     const urlParts = window.location.pathname.replace(/\/$/, "").split("/");
@@ -61,7 +86,6 @@ function getRoomIdFromURL() {
     return urlParts[urlParts.length - 1] || null;
 }
 
-// Helper function to import the private key from PEM format
 async function importPrivateKey(pemKey) {
     const pemHeader = "-----BEGIN KEY-----";
     const pemFooter = "-----END KEY-----";
@@ -77,7 +101,6 @@ async function importPrivateKey(pemKey) {
     );
 }
 
-// Convert Base64 string to ArrayBuffer
 function base64ToArrayBuffer(base64) {
     const binaryString = window.atob(base64);
     const bytes = new Uint8Array(binaryString.length);
@@ -87,13 +110,32 @@ function base64ToArrayBuffer(base64) {
     return bytes.buffer;
 }
 
-// Example function for decrypting a file name (you may already have this implemented elsewhere)
-async function decryptFileName(encryptedName, privateKey) {
-    const encryptedBuffer = base64ToArrayBuffer(encryptedName);
-    const decryptedBuffer = await crypto.subtle.decrypt(
-        { name: "RSA-OAEP" },
-        privateKey,
-        encryptedBuffer
-    );
-    return new TextDecoder().decode(decryptedBuffer);
+async function getRoomKey(room_id) {
+    try {
+        // Send a GET request to the Django endpoint
+        const response = await fetch(`/api/room/files/${room_id}/key/`, {
+            method: "GET",
+            headers: {
+                "Content-Type": "application/json"
+            },
+        });
+
+        if (!response.ok) {
+            // Handle HTTP errors
+            const errorText = await response.text();
+            throw new Error(`HTTP error! Status: ${response.status}, Message: ${errorText}`);
+        }
+
+        // Parse the JSON response
+        const data = await response.json();
+
+        // Log or return the `encrypted_key`
+        console.log(typeof data.encrypted_key)
+        console.log("Encrypted Key:", data.encrypted_key);
+        return data.encrypted_key;
+    } catch (error) {
+        // Handle errors (e.g., network issues, server errors)
+        console.error("Failed to fetch room key:", error);
+        return null;
+    }
 }
