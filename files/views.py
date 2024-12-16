@@ -16,7 +16,10 @@ from django.http import Http404
 from django.views.decorators.csrf import csrf_exempt
 import json
 from urllib.parse import quote
-from .models import Room, Access, File
+from .models import Room, Access, File, Contains
+from django.utils import timezone
+from urllib.parse import quote
+
 
 
 # The page for uploading files
@@ -325,17 +328,23 @@ def upload_file_to_room(request, room_id):
         )
 
         bucket_name = settings.MINIO_BUCKET_NAME
-        object_key = f"{room.encrypted_name}/{encrypted_name}"
+        object_key = quote(f"{room.encrypted_name}") + "/" + quote(f"{encrypted_name}")
 
         # Upload the file
         s3_client.upload_fileobj(file, bucket_name, object_key)
 
         # Save file metadata in the database
-        File.objects.create(
-            room=room,
-            name=encrypted_name,
-            path=object_key,
-            checksum=file_checksum,
+        file_instance = File.objects.create(
+            name=encrypted_name,  # Encrypted file name
+            path=object_key,  # Path or object key in storage
+            hash=file_checksum,  # File checksum for integrity verification
+            timestamp=timezone.now(),  # Current timestamp
+        )
+
+        # Step 2: Link the File to a Room using the Contains model
+        Contains.objects.create(
+            room_id=room,  # Room instance
+            file_id=file_instance  # Newly created File instance
         )
 
         return JsonResponse({"message": "File uploaded successfully"}, status=201)

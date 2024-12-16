@@ -11,11 +11,19 @@ document.addEventListener("DOMContentLoaded", async function () {
         // Import the user's private key
         const privateKey = await importPrivateKey(privateKeyString);
 
-        // Fetch room's symmetric key (from sessionStorage or API if necessary)
-
+        // Fetch room's symmetric key
         const encryptedKey = await getRoomKey(roomId);
+        const rawSymmetricKey = await decryptKey(encryptedKey, privateKey);
 
-        const symmetricKey = await decryptKey(encryptedKey, privateKey);
+        // Import the symmetric key for encryption
+        const symmetricKey = await crypto.subtle.importKey(
+            "raw",
+            rawSymmetricKey,
+            { name: "AES-GCM" },
+            false,
+            ["encrypt", "decrypt"]
+        );
+
         // Fetch files in the room
         const response = await fetch(`/api/room/${roomId}/files/`, {
             method: "GET",
@@ -28,7 +36,6 @@ document.addEventListener("DOMContentLoaded", async function () {
             return;
         }
 
-        console.log(response);
         const { files } = await response.json();
 
         const fileListContainer = document.getElementById("file-list");
@@ -62,11 +69,128 @@ document.addEventListener("DOMContentLoaded", async function () {
                 fileListContainer.appendChild(errorItem);
             }
         }
+
+        // Set up file upload handling
+        const uploadForm = document.getElementById("upload-file-form");
+        uploadForm.addEventListener("submit", (event) => handleFileUpload(event, symmetricKey, roomId));
+
     } catch (error) {
-        console.error("Error loading files:", error);
-        alert("An error occurred while loading files.");
+        console.error("Error initializing the page:", error);
+        alert("An error occurred during initialization.");
     }
 });
+
+async function handleFileUpload(event, symmetricKey, roomId) {
+    event.preventDefault();
+
+    const fileInput = document.getElementById("file-input");
+    if (!fileInput.files || fileInput.files.length === 0) {
+        alert("Please select a file to upload.");
+        return;
+    }
+
+    const file = fileInput.files[0];
+    const fileName = file.name;
+
+    try {
+        // Encrypt the file and the file name
+        const encryptedFileName = await encryptAndEncode(fileName, symmetricKey);
+        const encryptedFile = await encryptFile(file, symmetricKey);
+
+        // Retrieve the CSRF token
+        const csrfToken = getCSRFToken();
+
+        // Create a FormData object to send the encrypted file
+        const formData = new FormData();
+        formData.append("file", new Blob([encryptedFile]), "encrypted_file");
+        formData.append("file_name", encryptedFileName);
+
+        // Upload the file with CSRF token
+        const response = await fetch(`/api/room/${roomId}/upload/`, {
+            method: "POST",
+            headers: {
+                "X-CSRFToken": csrfToken, // Include the CSRF token
+            },
+            body: formData,
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.message || response.statusText);
+        }
+
+        alert("File uploaded successfully!");
+    } catch (error) {
+        console.error("Error uploading file:", error);
+        alert("Failed to upload the file.");
+    }
+}
+
+// Function to get CSRF token from cookies
+function getCSRFToken() {
+    const cookies = document.cookie.split(';');
+    for (let cookie of cookies) {
+        const [name, value] = cookie.trim().split('=');
+        if (name === 'csrftoken') {
+            return value;
+        }
+    }
+    return '';
+}
+
+
+async function encryptAndEncode(plaintext, symmetricKey) {
+    const encoder = new TextEncoder();
+    const encodedText = encoder.encode(plaintext);
+
+    // Generate a random initialization vector (IV)
+    const iv = crypto.getRandomValues(new Uint8Array(12)); // AES-GCM standard IV size is 12 bytes
+
+    const ciphertext = await crypto.subtle.encrypt(
+        {
+            name: "AES-GCM",
+            iv: iv,
+        },
+        symmetricKey,
+        encodedText
+    );
+
+    // Concatenate IV and ciphertext, and encode in base64
+    const combined = new Uint8Array(iv.byteLength + ciphertext.byteLength);
+    combined.set(iv);
+    combined.set(new Uint8Array(ciphertext), iv.byteLength);
+
+    return arrayBufferToBase64(combined);
+}
+
+async function encryptFile(file, symmetricKey) {
+    const fileBuffer = await file.arrayBuffer();
+
+    // Generate a random IV for the file
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+
+    const ciphertext = await crypto.subtle.encrypt(
+        {
+            name: "AES-GCM",
+            iv: iv,
+        },
+        symmetricKey,
+        fileBuffer
+    );
+
+    // Concatenate IV and ciphertext
+    const combined = new Uint8Array(iv.byteLength + ciphertext.byteLength);
+    combined.set(iv);
+    combined.set(new Uint8Array(ciphertext), iv.byteLength);
+
+    return combined;
+}
+
+function arrayBufferToBase64(buffer) {
+    const binary = String.fromCharCode(...new Uint8Array(buffer));
+    return btoa(binary);
+}
+
 
 // Helper function: Decrypt the room's symmetric key
 async function decryptKey(encryptedKeyBase64, privateKey) {
@@ -138,4 +262,20 @@ async function getRoomKey(room_id) {
         console.error("Failed to fetch room key:", error);
         return null;
     }
+}
+
+async function decryptAndDecode(encryptedBase64, aesKey, decoder) {
+    const encryptedData = base64ToArrayBuffer(encryptedBase64);
+    const decryptedData = await decryptData(encryptedData, aesKey);
+    return decoder.decode(decryptedData);
+}
+
+async function decryptData(data, key) {
+    const iv = data.slice(0, 12); // Extract the IV (first 12 bytes)
+    const encryptedData = data.slice(12); // Rest is the ciphertext
+    return crypto.subtle.decrypt(
+        { name: "AES-GCM", iv: iv },
+        key,
+        encryptedData
+    );
 }
