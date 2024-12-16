@@ -1,3 +1,4 @@
+import hashlib
 
 from django.shortcuts import render, redirect
 from django.http import HttpResponse, JsonResponse
@@ -15,7 +16,7 @@ from django.http import Http404
 from django.views.decorators.csrf import csrf_exempt
 import json
 
-from .models import Room, Access
+from .models import Room, Access, File
 
 
 # The page for uploading files
@@ -245,5 +246,133 @@ def list_rooms_view(request):
     ]
 
     return render(request, 'files/list_rooms.html', {"rooms": rooms})
+
+
+class RoomView(View):
+    def get(self, request, room_id):
+        # Check user access to the room
+        try:
+            access = Access.objects.get(user_profile=request.user, room_id=room_id)
+        except Access.DoesNotExist:
+            raise Http404("You do not have access to this room.")
+
+        room = access.room
+
+        return render(request, 'files/room_view.html', {
+            "room_id": room.id,
+            "encrypted_name": room.encrypted_name,
+            "encrypted_description": room.encrypted_description,
+            "privileges": access.privileges,
+        })
+
+@login_required
+def list_room_files(request, room_id):
+    try:
+        print(request.user)
+        # Check user access to the room
+        access = Access.objects.get(user_profile=request.user, room_id=room_id)
+        print('Access granted.')
+
+        # Fetch the files related to the room via the Contains table
+        files = File.objects.filter(contains__room_id=room_id).values("id", "name", "hash")
+        print('Files fetched.')
+
+        # Return the files as a JSON response
+        return JsonResponse({"files": list(files)}, status=200)
+
+    except Access.DoesNotExist:
+        return JsonResponse({"error": "No access to this room."}, status=403)
+    except Exception as e:
+        print(f'Error: {str(e)}')
+        return JsonResponse({"error": str(e)}, status=500)
+
+@login_required
+def upload_file_to_room(request, room_id):
+    if request.method != "POST":
+        return JsonResponse({"error": "Invalid request method"}, status=405)
+
+    try:
+        access = Access.objects.get(user_profile=request.user, room_id=room_id)
+        if access.privileges not in ['admin', 'write']:
+            return JsonResponse({"error": "You do not have write access to this room."}, status=403)
+
+        room = access.room
+
+        if 'file' not in request.FILES or 'file_name' not in request.POST:
+            return JsonResponse({"error": "Invalid file upload data"}, status=400)
+
+        file = request.FILES['file']
+        encrypted_name = request.POST['file_name']
+
+        # Compute file checksum
+        file_checksum = hashlib.sha256(file.read()).hexdigest()
+        file.seek(0)  # Reset the file pointer after reading
+
+        # Upload to MinIO
+        s3_client = boto3.client(
+            's3',
+            endpoint_url=f"http://{settings.MINIO_ENDPOINT}",
+            aws_access_key_id=settings.MINIO_ACCESS_KEY,
+            aws_secret_access_key=settings.MINIO_SECRET_KEY,
+        )
+
+        bucket_name = settings.MINIO_BUCKET_NAME
+        object_key = f"{room.encrypted_name}/{encrypted_name}"
+
+        # Upload the file
+        s3_client.upload_fileobj(file, bucket_name, object_key)
+
+        # Save file metadata in the database
+        File.objects.create(
+            room=room,
+            name=encrypted_name,
+            path=object_key,
+            checksum=file_checksum,
+        )
+
+        return JsonResponse({"message": "File uploaded successfully"}, status=201)
+
+    except Access.DoesNotExist:
+        return JsonResponse({"error": "No access to room."}, status=403)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+@login_required
+def download_file(request, file_id):
+    try:
+        file_record = File.objects.get(id=file_id)
+        room = file_record.room
+
+        # Verify the user has access to the room
+        if not Access.objects.filter(user_profile=request.user, room=room).exists():
+            return JsonResponse({"error": "No access to this room."}, status=403)
+
+        # Fetch file from MinIO
+        s3_client = boto3.client(
+            's3',
+            endpoint_url=f"http://{settings.MINIO_ENDPOINT}",
+            aws_access_key_id=settings.MINIO_ACCESS_KEY,
+            aws_secret_access_key=settings.MINIO_SECRET_KEY,
+        )
+
+        bucket_name = settings.MINIO_BUCKET_NAME
+        object_key = file_record.path
+
+        # Generate a presigned URL for download
+        try:
+            presigned_url = s3_client.generate_presigned_url(
+                'get_object',
+                Params={'Bucket': bucket_name, 'Key': object_key},
+                ExpiresIn=3600,  # URL valid for 1 hour
+            )
+            return JsonResponse({"download_url": presigned_url}, status=200)
+        except ClientError as e:
+            return JsonResponse({"error": "Failed to generate download link"}, status=500)
+
+    except File.DoesNotExist:
+        return JsonResponse({"error": "File not found"}, status=404)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
 
 

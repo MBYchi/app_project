@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+
+{% block style %}
+    {% load static %}
+{% endblock %}
+
+{% block content %}
+    <div class="container">
+        <h2>Room: <span id="room-name"></span></h2>
+        <p id="room-description"></p>
+
+        <div id="file-list-section">
+            <h3>Files in the Room</h3>
+            <ul id="file-list">
+                <li>Loading files...</li>
+            </ul>
+        </div>
+
+        <div id="upload-section">
+            <h3>Upload a File</h3>
+            <form id="upload-file-form">
+                <div class="form-group">
+                    <label for="file-input">Choose a file:</label>
+                    <input type="file" id="file-input" class="form-control">
+                </div>
+                <button type="submit" class="btn btn-primary">Upload</button>
+            </form>
+        </div>
+    </div>
+
+<script src="{% static 'files/js/roomView.js' %}"></script>
+{% endblock %}

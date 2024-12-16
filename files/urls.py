@@ -1,5 +1,6 @@
 from django.urls import path
-from .views import FileUploadView, FileDownloadView, ListFilesMinioView, get_public_key, create_room, create_room_view, list_rooms, list_rooms_view
+from .views import (FileUploadView, FileDownloadView, ListFilesMinioView, get_public_key, create_room,
+                    create_room_view, list_rooms, list_rooms_view, RoomView, list_room_files, upload_file_to_room, download_file)
 import os
 
 urlpatterns = [
@@ -11,4 +12,8 @@ urlpatterns = [
     path('api/list-rooms/', list_rooms, name='list_rooms'),
     path('rooms/', list_rooms_view, name="list_rooms_view"),
     path('api/get-public-key/', get_public_key, name='get_public_key'),
+    path('room/<int:room_id>/', RoomView.as_view(), name='api_room_view'),  # Get room details
+    path('api/room/<int:room_id>/files/', list_room_files, name='api_list_room_files'),  # List files in a room
+    path('api/room/<int:room_id>/upload/', upload_file_to_room, name='api_upload_file_to_room'),  # Upload files to a room
+    path('api/room/files/<int:file_id>/download/', download_file, name='api_download_file'),  # Download file by ID
 ]
