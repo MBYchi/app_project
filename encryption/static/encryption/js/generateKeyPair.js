@@ -35,6 +35,7 @@ async function generateKeyPair() {
     // Скачиваем приватный ключ
     downloadPrivateKey(privateKeyPem);
 
+    sessionStorage.setItem("privateKey", privateKeyPem);
     // Сохраняем публичный ключ в sessionStorage
     sessionStorage.setItem("publicKey", publicKeyPem);
     return publicKeyPem;
