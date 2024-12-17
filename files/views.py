@@ -301,6 +301,7 @@ def list_room_files(request, room_id):
 def upload_file_to_room(request, room_id):
     if request.method != "POST":
         return JsonResponse({"error": "Invalid request method"}, status=405)
+    print('tutaj jestem')
 
     try:
         access = Access.objects.get(user_profile=request.user, room_id=room_id)
@@ -328,11 +329,11 @@ def upload_file_to_room(request, room_id):
         )
 
         bucket_name = settings.MINIO_BUCKET_NAME
-        object_key = quote(f"{room.encrypted_name}") + "/" + quote(f"{encrypted_name}")
+        object_key = quote(f"{room.encrypted_name}", safe = '') + "/" + quote(f"{encrypted_name}", safe = '')
 
         # Upload the file
         s3_client.upload_fileobj(file, bucket_name, object_key)
-
+        print('Tutaj jestem')
         # Save file metadata in the database
         file_instance = File.objects.create(
             name=encrypted_name,  # Encrypted file name

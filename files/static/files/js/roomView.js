@@ -14,7 +14,6 @@ document.addEventListener("DOMContentLoaded", async function () {
         // Fetch room's symmetric key
         const encryptedKey = await getRoomKey(roomId);
         const rawSymmetricKey = await decryptKey(encryptedKey, privateKey);
-
         // Import the symmetric key for encryption
         const symmetricKey = await crypto.subtle.importKey(
             "raw",
@@ -23,7 +22,6 @@ document.addEventListener("DOMContentLoaded", async function () {
             false,
             ["encrypt", "decrypt"]
         );
-
         // Fetch files in the room
         const response = await fetch(`/api/room/${roomId}/files/`, {
             method: "GET",
@@ -42,34 +40,32 @@ document.addEventListener("DOMContentLoaded", async function () {
 
         if (!files || files.length === 0) {
             fileListContainer.innerHTML = "<p>No files in this room.</p>";
-            return;
-        }
+        } else {
+            const decoder = new TextDecoder();
 
-        const decoder = new TextDecoder();
+            for (const file of files) {
+                try {
+                    // Decrypt the file name
+                    const decryptedName = await decryptAndDecode(file.encrypted_name, symmetricKey, decoder);
 
-        for (const file of files) {
-            try {
-                // Decrypt the file name
-                const decryptedName = await decryptAndDecode(file.encrypted_name, symmetricKey, decoder);
-
-                // Display the file
-                const listItem = document.createElement("li");
-                listItem.className = "list-group-item";
-                listItem.innerHTML = `
+                    // Display the file
+                    const listItem = document.createElement("li");
+                    listItem.className = "list-group-item";
+                    listItem.innerHTML = `
                     <strong>File Name:</strong> ${decryptedName} <br>
                     <strong>Hash:</strong> ${file.hash} <br>
                     <strong>Uploaded On:</strong> ${file.timestamp}
                 `;
-                fileListContainer.appendChild(listItem);
-            } catch (error) {
-                console.error("Error decrypting file:", error);
-                const errorItem = document.createElement("li");
-                errorItem.className = "list-group-item text-danger";
-                errorItem.textContent = "Failed to decrypt file details.";
-                fileListContainer.appendChild(errorItem);
+                    fileListContainer.appendChild(listItem);
+                } catch (error) {
+                    console.error("Error decrypting file:", error);
+                    const errorItem = document.createElement("li");
+                    errorItem.className = "list-group-item text-danger";
+                    errorItem.textContent = "Failed to decrypt file details.";
+                    fileListContainer.appendChild(errorItem);
+                }
             }
         }
-
         // Set up file upload handling
         const uploadForm = document.getElementById("upload-file-form");
         uploadForm.addEventListener("submit", (event) => handleFileUpload(event, symmetricKey, roomId));
@@ -82,7 +78,6 @@ document.addEventListener("DOMContentLoaded", async function () {
 
 async function handleFileUpload(event, symmetricKey, roomId) {
     event.preventDefault();
-
     const fileInput = document.getElementById("file-input");
     if (!fileInput.files || fileInput.files.length === 0) {
         alert("Please select a file to upload.");
