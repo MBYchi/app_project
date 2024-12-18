@@ -16,6 +16,6 @@ urlpatterns = [
     path('room/<int:room_id>/', RoomView.as_view(), name='api_room_view'),  # Get room details
     path('api/room/<int:room_id>/files/', list_room_files, name='api_list_room_files'),  # List files in a room
     path('api/room/<int:room_id>/upload/', upload_file_to_room, name='api_upload_file_to_room'),  # Upload files to a room
-    path('api/room/files/<int:file_id>/download/', download_file, name='api_download_file'),  # Download file by ID
+    path('api/room/files/<str:file_hash>/download/', download_file, name='api_download_file'),  # Download file by ID
     path('api/room/files/<int:room_id>/key/', response_room_key, name='api_response_room_key'),
 ]

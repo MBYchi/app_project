@@ -55,6 +55,9 @@ document.addEventListener("DOMContentLoaded", async function () {
                     <strong>File Name:</strong> ${decryptedName} <br>
                     <strong>Hash:</strong> ${file.hash} <br>
                     <strong>Uploaded On:</strong> ${file.timestamp}
+                    <button class="btn btn-primary btn-sm download-btn" data-file-id="${file.hash}">
+                        Download
+                    </button>
                 `;
                     fileListContainer.appendChild(listItem);
                 } catch (error) {
@@ -66,6 +69,12 @@ document.addEventListener("DOMContentLoaded", async function () {
                 }
             }
         }
+        // Add event listener for download buttons
+        document.addEventListener("click", async function (event) {
+            if (event.target.classList.contains("download-btn")) {
+                const hash = event.target.getAttribute("data-file-id");
+                await downloadFile(hash, symmetricKey);
+            }});
         // Set up file upload handling
         const uploadForm = document.getElementById("upload-file-form");
         uploadForm.addEventListener("submit", (event) => handleFileUpload(event, symmetricKey, roomId));
@@ -75,6 +84,56 @@ document.addEventListener("DOMContentLoaded", async function () {
         alert("An error occurred during initialization.");
     }
 });
+
+// Download and decrypt file
+async function downloadFile(hash, symmetricKey) {
+    try {
+        // Fetch presigned URL
+        const response = await fetch(`/api/room/files/${hash}/download/`, {
+            method: "GET",
+            headers: {
+                "X-CSRFToken": getCSRFToken(), // Include the CSRF token
+            },
+            headers: { "Content-Type": "application/json" },
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.message || response.statusText);
+        }
+
+        const { download_url, encrypted_name } = await response.json();
+
+        // Fetch the encrypted file
+        const encryptedFileResponse = await fetch(download_url);
+        if (!encryptedFileResponse.ok) {
+            throw new Error("Failed to download the encrypted file.");
+        }
+
+        const encryptedFileBuffer = await encryptedFileResponse.arrayBuffer();
+
+        // Decrypt the file
+        const decryptedFileBuffer = await decryptData(encryptedFileBuffer, symmetricKey);
+
+        // Convert decrypted buffer to a Blob for download
+        const blob = new Blob([decryptedFileBuffer]);
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+
+        // Use decrypted file name for the download
+        const decryptedFileName = await decryptAndDecode(encrypted_name, symmetricKey, new TextDecoder());
+        a.download = decryptedFileName;
+
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+
+        alert("File downloaded successfully!");
+    } catch (error) {
+        console.error("Error downloading and decrypting file:", error);
+        alert("Failed to download and decrypt the file.");
+    }
+}
 
 async function handleFileUpload(event, symmetricKey, roomId) {
     event.preventDefault();
@@ -115,6 +174,7 @@ async function handleFileUpload(event, symmetricKey, roomId) {
         }
 
         alert("File uploaded successfully!");
+        location.reload(true);
     } catch (error) {
         console.error("Error uploading file:", error);
         alert("Failed to upload the file.");
@@ -189,7 +249,6 @@ function arrayBufferToBase64(buffer) {
 
 // Helper function: Decrypt the room's symmetric key
 async function decryptKey(encryptedKeyBase64, privateKey) {
-    console.log(encryptedKeyBase64);
     const encryptedKey = base64ToArrayBuffer(encryptedKeyBase64);
     return crypto.subtle.decrypt({ name: "RSA-OAEP" }, privateKey, encryptedKey);
 }
@@ -248,9 +307,6 @@ async function getRoomKey(room_id) {
         // Parse the JSON response
         const data = await response.json();
 
-        // Log or return the `encrypted_key`
-        console.log(typeof data.encrypted_key)
-        console.log("Encrypted Key:", data.encrypted_key);
         return data.encrypted_key;
     } catch (error) {
         // Handle errors (e.g., network issues, server errors)

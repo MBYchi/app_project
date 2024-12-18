@@ -301,7 +301,6 @@ def list_room_files(request, room_id):
 def upload_file_to_room(request, room_id):
     if request.method != "POST":
         return JsonResponse({"error": "Invalid request method"}, status=405)
-    print('tutaj jestem')
 
     try:
         access = Access.objects.get(user_profile=request.user, room_id=room_id)
@@ -333,7 +332,6 @@ def upload_file_to_room(request, room_id):
 
         # Upload the file
         s3_client.upload_fileobj(file, bucket_name, object_key)
-        print('Tutaj jestem')
         # Save file metadata in the database
         file_instance = File.objects.create(
             name=encrypted_name,  # Encrypted file name
@@ -356,11 +354,14 @@ def upload_file_to_room(request, room_id):
         return JsonResponse({"error": str(e)}, status=500)
 
 @login_required
-def download_file(request, file_id):
+def download_file(request, file_hash):
     try:
-        file_record = File.objects.get(id=file_id)
-        room = file_record.room
-
+        print("I'm here")
+        file_record = File.objects.get(hash = file_hash)
+        print("file found")
+        print(file_record.id)
+        room = Contains.objects.get(file_id = file_record).room_id
+        print("room found")
         # Verify the user has access to the room
         if not Access.objects.filter(user_profile=request.user, room=room).exists():
             return JsonResponse({"error": "No access to this room."}, status=403)
@@ -383,7 +384,10 @@ def download_file(request, file_id):
                 Params={'Bucket': bucket_name, 'Key': object_key},
                 ExpiresIn=3600,  # URL valid for 1 hour
             )
-            return JsonResponse({"download_url": presigned_url}, status=200)
+            return JsonResponse({
+                "download_url": presigned_url,
+                "encrypted_name": file_record.name  # Encrypted file name
+            }, status=200)
         except ClientError as e:
             return JsonResponse({"error": "Failed to generate download link"}, status=500)
 
@@ -395,7 +399,5 @@ def download_file(request, file_id):
 @login_required()
 def response_room_key(request, room_id):
     access = Access.objects.filter(user_profile=request.user, room_id=room_id)
-    print(type(access[0]))
-    print(type(access[0].encrypted_key))
     return JsonResponse({"encrypted_key" : access[0].encrypted_key})
 
