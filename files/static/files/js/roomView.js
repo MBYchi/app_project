@@ -58,6 +58,9 @@ document.addEventListener("DOMContentLoaded", async function () {
                     <button class="btn btn-primary btn-sm download-btn" data-file-id="${file.hash}">
                         Download
                     </button>
+                    <button class="btn btn-danger btn-sm delete-btn" data-file-id="${file.hash}">
+                        Delete
+                    </button>
                 `;
                     fileListContainer.appendChild(listItem);
                 } catch (error) {
@@ -178,6 +181,38 @@ async function handleFileUpload(event, symmetricKey, roomId) {
     } catch (error) {
         console.error("Error uploading file:", error);
         alert("Failed to upload the file.");
+    }
+}
+
+document.addEventListener("click", async function (event) {
+    if (event.target.classList.contains("delete-btn")) {
+        const hash = event.target.getAttribute("data-file-id");
+        if (confirm("Are you sure you want to delete this file?")) {
+            await deleteFile(hash);
+        }
+    }
+});
+
+async function deleteFile(hash) {
+    try {
+        const response = await fetch(`/api/room/files/${hash}/delete/`, {
+            method: "DELETE",
+            headers: {
+                "X-CSRFToken": getCSRFToken(), // Include the CSRF token
+                "Content-Type": "application/json",
+            },
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.message || response.statusText);
+        }
+
+        alert("File deleted successfully!");
+        location.reload(true);
+    } catch (error) {
+        console.error("Error deleting file:", error);
+        alert("Failed to delete the file.");
     }
 }
 

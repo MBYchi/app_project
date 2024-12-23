@@ -444,6 +444,46 @@ def download_file(request, file_hash):
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
+@login_required
+def delete_file(request, file_hash):
+    if request.method != "DELETE":
+        return JsonResponse({"error": "Invalid request method"}, status=405)
+
+    try:
+        # Find the file by its hash
+        file_record = File.objects.get(hash=file_hash)
+        room = Contains.objects.get(file_id=file_record).room_id
+
+        # Verify the user has access and sufficient privileges
+        access = Access.objects.filter(user_profile=request.user, room=room).first()
+        if not access or access.privileges not in ['admin', 'write']:
+            return JsonResponse({"error": "You do not have sufficient privileges to delete files."}, status=403)
+
+        # Remove the file from MinIO
+        s3_client = boto3.client(
+            's3',
+            endpoint_url=f"http://{settings.MINIO_ENDPOINT}",
+            aws_access_key_id=settings.MINIO_ACCESS_KEY,
+            aws_secret_access_key=settings.MINIO_SECRET_KEY,
+        )
+        bucket_name = settings.MINIO_BUCKET_NAME
+        object_key = file_record.path
+
+        try:
+            s3_client.delete_object(Bucket=bucket_name, Key=object_key)
+        except ClientError as e:
+            return JsonResponse({"error": "Failed to delete file from storage."}, status=500)
+
+        # Remove the file record and its association
+        file_record.delete()
+
+        return JsonResponse({"message": "File deleted successfully."}, status=200)
+
+    except File.DoesNotExist:
+        return JsonResponse({"error": "File not found."}, status=404)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
 @login_required()
 def response_room_key(request, room_id):
     access = Access.objects.filter(user_profile=request.user, room_id=room_id)
