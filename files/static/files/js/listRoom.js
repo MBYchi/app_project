@@ -62,6 +62,9 @@ document.addEventListener("DOMContentLoaded", async function () {
                     <button class="btn btn-primary enter-room" data-room-id="${room.room_id}">
                         Enter Room
                     </button>
+                    <button class="btn btn-danger delete-room" data-room-id="${room.room_id}">
+                        Delete Room
+                    </button>
                 `;
                 roomListContainer.appendChild(listItem);
 
@@ -69,6 +72,13 @@ document.addEventListener("DOMContentLoaded", async function () {
                 const enterRoomButton = listItem.querySelector(".enter-room");
                 enterRoomButton.addEventListener("click", () => {
                     handleEnterRoom(room.room_id);
+                });
+
+                const deleteRoomButton = listItem.querySelector(".delete-room");
+                deleteRoomButton.addEventListener("click", async () => {
+                    if (confirm("Are you sure you want to delete this room? This action cannot be undone.")) {
+                        await handleDeleteRoom(room.room_id);
+                    }
                 });
             } catch (error) {
                 console.error("Failed to decrypt room:", error);
@@ -88,6 +98,38 @@ document.addEventListener("DOMContentLoaded", async function () {
 function handleEnterRoom(roomId) {
     // Redirect to the room's page, e.g., /room/{room_id}/
     window.location.href = `/room/${roomId}/`;
+}
+
+async function handleDeleteRoom(roomId) {
+    try {
+        const response = await fetch(`/api/delete-room/${roomId}/`, {
+            method: "DELETE",
+            headers: { "X-CSRFToken": getCSRFToken() },
+        });
+
+        if (response.ok) {
+            alert("Room deleted successfully!");
+            document.location.reload(); // Reload the page to refresh the list
+        } else {
+            const error = await response.json();
+            alert("Failed to delete room: " + (error.message || response.statusText));
+        }
+    } catch (err) {
+        console.error("Error deleting room:", err);
+        alert("An error occurred while deleting the room.");
+    }
+}
+
+// Function to get CSRF token from cookies
+function getCSRFToken() {
+    const cookies = document.cookie.split(';');
+    for (let cookie of cookies) {
+        const [name, value] = cookie.trim().split('=');
+        if (name === 'csrftoken') {
+            return value;
+        }
+    }
+    return '';
 }
 
 // Helper function to import the private key from PEM format
