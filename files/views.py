@@ -19,6 +19,7 @@ from urllib.parse import quote
 from .models import Room, Access, File, Contains
 from django.utils import timezone
 from urllib.parse import quote
+from django.db import transaction
 
 
 
@@ -250,6 +251,53 @@ def list_rooms_view(request):
 
     return render(request, 'files/list_rooms.html', {"rooms": rooms})
 
+@login_required
+@csrf_exempt
+def delete_room(request, room_id):
+    if request.method != "DELETE":
+        return JsonResponse({"message": "Invalid method"}, status=405)
+
+    try:
+        access_entry = Access.objects.get(room_id=room_id, user_profile=request.user)
+
+        # Check if the user has admin privileges
+        if access_entry.privileges != "admin":
+            return JsonResponse({"message": "Permission denied. Only admin users can delete rooms."}, status=403)
+
+        with transaction.atomic():
+            # (Optional) Delete related files in MinIO bucket
+            try:
+                s3_client = boto3.client(
+                    "s3",
+                    endpoint_url=f"http://{settings.MINIO_ENDPOINT}",
+                    aws_access_key_id=settings.MINIO_ACCESS_KEY,
+                    aws_secret_access_key=settings.MINIO_SECRET_KEY,
+                    config=Config(signature_version="s3v4"),
+                    region_name="us-east-1",
+                    use_ssl=settings.AWS_S3_USE_SSL,
+                )
+                folder_name = quote(access_entry.room.encrypted_name, safe='') + "/"
+                bucket_name = settings.MINIO_BUCKET_NAME
+
+                # List and delete all files in the folder
+                objects_to_delete = s3_client.list_objects_v2(Bucket=bucket_name, Prefix=folder_name)
+                if "Contents" in objects_to_delete:
+                    delete_keys = {"Objects": [{"Key": obj["Key"]} for obj in objects_to_delete["Contents"]]}
+                    s3_client.delete_objects(Bucket=bucket_name, Delete=delete_keys)
+            except Exception as e:
+                return JsonResponse({"message": f"Error deleting MinIO files: {str(e)}"}, status=500)
+            room = Room.objects.filter(id=room_id).first()
+            for contain in Contains.objects.filter(room_id = room):
+                contain.file_id.delete()
+            Access.objects.filter(room_id=room_id).delete()
+            room.delete()
+        return JsonResponse({"message": "Room deleted successfully"}, status=200)
+
+    except Access.DoesNotExist:
+        return JsonResponse({"message": "Room not found or access denied"}, status=404)
+
+    except Exception as e:
+        return JsonResponse({"message": f"An error occurred: {str(e)}"}, status=500)
 
 class RoomView(View):
     def get(self, request, room_id):
