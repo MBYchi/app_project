@@ -24,6 +24,18 @@
                 </div>
                 <button type="submit" class="btn btn-primary">Upload</button>
             </form>
+            <form id="share-room-form">
+                <label for="target-username">Share with Username:</label>
+                <input type="text" id="target-username" name="target-username" required>
+
+                <label for="privilege">Select Privilege:</label>
+                <select id="privilege" name="privilege" required>
+                    <option value="read">Read</option>
+                    <option value="write">Write</option>
+                </select>
+
+                <button type="submit">Share Room</button>
+            </form>
         </div>
     </div>
 

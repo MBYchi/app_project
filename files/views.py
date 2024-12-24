@@ -1,6 +1,6 @@
 import hashlib
 
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.http import HttpResponse, JsonResponse
 from django.core.files.storage import default_storage
 from django.views import View
@@ -20,6 +20,7 @@ from .models import Room, Access, File, Contains
 from django.utils import timezone
 from urllib.parse import quote
 from django.db import transaction
+from django.contrib.auth.models import User
 
 
 
@@ -489,3 +490,42 @@ def response_room_key(request, room_id):
     access = Access.objects.filter(user_profile=request.user, room_id=room_id)
     return JsonResponse({"encrypted_key" : access[0].encrypted_key})
 
+@login_required
+def fetch_user_public_key(request, username):
+    """
+    Fetch the public key of a user by their username.
+    """
+    user = get_object_or_404(User, username=username)
+    print(user.profile.public_key)
+    # Assuming `public_key` is a field in the User model or its profile
+    return JsonResponse({"public_key": user.profile.public_key})
+
+@csrf_exempt
+@login_required
+def share_room(request, room_id):
+    """
+    Add an entry to the Access table for the new user with the encrypted symmetric key and privileges.
+    """
+    if request.method == "POST":
+        admin_access = get_object_or_404(Access, room_id=room_id, user_profile=request.user)
+        if admin_access.privileges != "admin":
+            return JsonResponse({"error": "You do not have permission to share this room."}, status=403)
+
+        data = json.loads(request.body)
+        target_user = get_object_or_404(User, username=data["username"])
+        new_encrypted_key = data["encrypted_key"]
+        privileges = data.get("privileges", "read")  # Default privileges
+
+        if privileges not in ["read", "write"]:
+            return JsonResponse({"error": "Invalid privilege level."}, status=400)
+
+        Access.objects.create(
+            user_profile=target_user,
+            room_id=admin_access.room.id,
+            encrypted_key=new_encrypted_key,
+            privileges=privileges,
+        )
+
+        return JsonResponse({"message": "Room shared successfully."})
+
+    return JsonResponse({"error": "Invalid request method."}, status=405)

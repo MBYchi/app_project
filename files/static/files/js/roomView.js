@@ -88,6 +88,20 @@ document.addEventListener("DOMContentLoaded", async function () {
     }
 });
 
+document.getElementById("share-room-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const roomId = getRoomIdFromURL();
+    const targetUsername = document.getElementById("target-username").value.trim();
+    const privilege = document.getElementById("privilege").value;
+
+    if (!targetUsername || !privilege) {
+        alert("Please provide all required details.");
+        return;
+    }
+
+    await shareRoomWithUser(roomId, targetUsername, privilege);
+});
+
 // Download and decrypt file
 async function downloadFile(hash, symmetricKey) {
     try {
@@ -214,6 +228,97 @@ async function deleteFile(hash) {
         console.error("Error deleting file:", error);
         alert("Failed to delete the file.");
     }
+}
+
+async function shareRoomWithUser(roomId, targetUsername, privilege) {
+    try {
+        // Fetch admin's private key from session storage
+        const privateKeyString = sessionStorage.getItem("privateKey");
+        if (!privateKeyString) {
+            throw new Error("Admin's private key not found in session storage.");
+        }
+
+        const privateKey = await importPrivateKey(privateKeyString);
+
+        // Fetch admin's encrypted key for the room
+        const accessResponse = await fetch(`/api/room/files/${roomId}/key/`, {
+            method: "GET",
+            headers: { "Content-Type": "application/json" },
+        });
+
+        if (!accessResponse.ok) {
+            const accessError = await accessResponse.json();
+            throw new Error(accessError.message || "Failed to fetch admin's encrypted room key.");
+        }
+
+        const { encrypted_key: adminEncryptedKey } = await accessResponse.json();
+
+        // Decrypt the symmetric key
+        const symmetricKey = await decryptKey(adminEncryptedKey, privateKey);
+
+        // Fetch the public key of the target user
+        const userResponse = await fetch(`/api/user/${targetUsername}/public_key/`, {
+            method: "GET",
+            headers: { "Content-Type": "application/json" },
+        });
+
+        if (!userResponse.ok) {
+            const userError = await userResponse.json();
+            throw new Error(userError.message || "Failed to fetch the user's public key.");
+        }
+
+        const { public_key: targetUserPublicKeyPEM } = await userResponse.json();
+        console.log(targetUserPublicKeyPEM);
+        const targetUserPublicKey = await importPublicKey(targetUserPublicKeyPEM);
+
+        // Encrypt the symmetric key with the target user's public key
+        const encryptedKeyForTargetUser = await crypto.subtle.encrypt(
+            { name: "RSA-OAEP" },
+            targetUserPublicKey,
+            symmetricKey
+        );
+
+        // Share the encrypted key with the backend
+        const shareResponse = await fetch(`/api/room/${roomId}/share/`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": getCSRFToken(),
+            },
+            body: JSON.stringify({
+                username: targetUsername,
+                encrypted_key: arrayBufferToBase64(encryptedKeyForTargetUser),
+                privileges: privilege, // Send the selected privilege
+            }),
+        });
+
+        if (!shareResponse.ok) {
+            const shareError = await shareResponse.json();
+            throw new Error(shareError.message || "Failed to share the room.");
+        }
+
+        alert("Room shared successfully.");
+    } catch (error) {
+        console.error("Error sharing the room:", error);
+        alert(error.message || "An error occurred while sharing the room.");
+    }
+}
+
+async function importPublicKey(pemKey) {
+    console.log(pemKey);
+    const pemHeader = "-----BEGIN KEY-----";
+    const pemFooter = "-----END KEY-----";
+    const pemContents = pemKey.replace(pemHeader, "").replace(pemFooter, "").replace(/\s+/g, "");
+    console.log(pemContents);
+    const binaryDer = Uint8Array.from(window.atob(pemContents), c => c.charCodeAt(0));
+
+    return crypto.subtle.importKey(
+        "spki",
+        binaryDer,
+        { name: "RSA-OAEP", hash: "SHA-256" },
+        true,
+        ["encrypt"]
+    );
 }
 
 // Function to get CSRF token from cookies
