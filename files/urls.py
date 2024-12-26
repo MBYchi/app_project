@@ -1,13 +1,10 @@
 from django.urls import path
-from .views import (FileUploadView, FileDownloadView, ListFilesMinioView, get_public_key, create_room,
-                    create_room_view, list_rooms, list_rooms_view, RoomView, list_room_files, upload_file_to_room,
-                    download_file, response_room_key, delete_room, delete_file, fetch_user_public_key, share_room, remove_shared_user)
+from .views import (get_public_key, create_room, create_room_view, list_rooms, list_rooms_view, RoomView,
+                    list_room_files, upload_file_to_room, download_file, response_room_key, delete_room, delete_file,
+                    fetch_user_public_key, share_room, remove_shared_user)
 import os
 
 urlpatterns = [
-    path('upload/', FileUploadView.as_view(), name='file_upload'),
-    path('download/<str:file_name>/', FileDownloadView.as_view(), name='file_download'),
-    path('my_files/', ListFilesMinioView.as_view(), name='list_minio_files'),
     path('api/create-room/', create_room, name='create_room'),
     path('create-room/', create_room_view, name='create_room_view'),
     path('api/list-rooms/', list_rooms, name='list_rooms'),
