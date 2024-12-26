@@ -37,7 +37,17 @@
                 <button type="submit">Share Room</button>
             </form>
         </div>
+        <div id="shared-users-section"></div>
     </div>
 
+
+<script id="context-data" type="application/json">
+    {
+        "roomId": "{{ room_id|escapejs }}",
+        "encryptedName": "{{ encrypted_name|escapejs }}",
+        "priviledges": "{{ privileges|escapejs }}",
+        "shared_users": {{ shared_users|safe }}
+    }
+</script>
 <script src="{% static 'files/js/roomView.js' %}"></script>
 {% endblock %}

@@ -1,5 +1,6 @@
 import hashlib
 
+from django.core.exceptions import ObjectDoesNotExist
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import HttpResponse, JsonResponse
 from django.core.files.storage import default_storage
@@ -305,6 +306,12 @@ class RoomView(View):
         # Check user access to the room
         try:
             access = Access.objects.get(user_profile=request.user, room_id=room_id)
+            if access.privileges != "admin":
+                shared_users = []  # No shared users for non-admins
+            else:
+                shared_users = Access.objects.filter(room_id=room_id).exclude(user_profile=request.user).values(
+                    'user_profile__username', 'privileges'
+                )
         except Access.DoesNotExist:
             raise Http404("You do not have access to this room.")
 
@@ -315,6 +322,7 @@ class RoomView(View):
             "encrypted_name": room.encrypted_name,
             "encrypted_description": room.encrypted_description,
             "privileges": access.privileges,
+            "shared_users": json.dumps(list(shared_users)),
         })
 
 @login_required
@@ -529,3 +537,16 @@ def share_room(request, room_id):
         return JsonResponse({"message": "Room shared successfully."})
 
     return JsonResponse({"error": "Invalid request method."}, status=405)
+@login_required()
+@csrf_exempt
+def remove_shared_user(request, roomId, username):
+    if request.method == "DELETE":
+        room = get_object_or_404(Room, id=roomId)
+
+        try:
+            access = get_object_or_404(Access, room = room, user_profile__username=username)
+        except ObjectDoesNotExist:
+            return JsonResponse({"error": "Access not found."}, status=404)
+
+        access.delete()
+        return JsonResponse({"message": "User removed successfully."}, status=200)

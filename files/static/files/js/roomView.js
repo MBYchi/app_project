@@ -1,5 +1,8 @@
 document.addEventListener("DOMContentLoaded", async function () {
-    const roomId = getRoomIdFromURL();
+    const contextScript = document.getElementById("context-data");
+    const contextData = JSON.parse(contextScript.textContent);
+    console.log(contextData.shared_users);
+    const roomId = Number(contextData.roomId);
     const privateKeyString = sessionStorage.getItem("privateKey");
 
     if (!privateKeyString) {
@@ -72,12 +75,54 @@ document.addEventListener("DOMContentLoaded", async function () {
                 }
             }
         }
+
+        if (contextData.priviledges == "admin") {
+            const sharedUsers = contextData.shared_users;
+            const sharedUsersContainer = document.getElementById("shared-users-section");
+            const sharedUsersSection = document.createElement("div");
+            sharedUsersContainer.id = "shared-users-section";
+            sharedUsersSection.innerHTML = "<h3>Shared Users</h3>";
+
+            if (!sharedUsers || sharedUsers.length === 0) {
+                sharedUsersSection.innerHTML += "<p>No users have access to this room.</p>";
+            } else {
+                const sharedUsersList = document.createElement("ul");
+                sharedUsersList.className = "list-group";
+
+                sharedUsers.forEach(user => {
+                    const listItem = document.createElement("li");
+                    listItem.className = "list-group-item";
+                    listItem.innerHTML = `
+                    <strong>Username:</strong> ${user.user_profile__username} <br>
+                    <strong>Privilege:</strong> ${user.privileges}
+                    <button class="btn btn-danger btn-sm remove-user-btn" data-username="${user.user_profile__username}">
+                        Remove access for user
+                    </button>
+                `;
+                    sharedUsersList.appendChild(listItem);
+                });
+
+                sharedUsersSection.appendChild(sharedUsersList);
+            }
+
+            sharedUsersContainer.appendChild(sharedUsersSection);
+        }
+
         // Add event listener for download buttons
         document.addEventListener("click", async function (event) {
             if (event.target.classList.contains("download-btn")) {
                 const hash = event.target.getAttribute("data-file-id");
                 await downloadFile(hash, symmetricKey);
             }});
+
+        document.addEventListener("click", async function (event){
+            if (event.target.classList.contains("remove-user-btn")) {
+                const username = event.target.getAttribute("data-username")
+                if (confirm("Are you sure you want to remove access for this user?")) {
+                await remove_user(roomId, username);
+                }
+            }
+        })
         // Set up file upload handling
         const uploadForm = document.getElementById("upload-file-form");
         uploadForm.addEventListener("submit", (event) => handleFileUpload(event, symmetricKey, roomId));
@@ -282,8 +327,8 @@ async function shareRoomWithUser(roomId, targetUsername, privilege) {
         const shareResponse = await fetch(`/api/room/${roomId}/share/`, {
             method: "POST",
             headers: {
-                "Content-Type": "application/json",
                 "X-CSRFToken": getCSRFToken(),
+                "Content-Type": "application/json",
             },
             body: JSON.stringify({
                 username: targetUsername,
@@ -301,6 +346,28 @@ async function shareRoomWithUser(roomId, targetUsername, privilege) {
     } catch (error) {
         console.error("Error sharing the room:", error);
         alert(error.message || "An error occurred while sharing the room.");
+    }
+}
+
+async function remove_user(roomId, username){
+    try  {
+        const response = await fetch(`/api/room/${roomId}/shared-users/${username}/`, {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json",
+            "X-CSRFToken": getCSRFToken(),
+            },
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.message || response.statusText);
+        }
+
+        alert(`User ${username} has been removed successfully.`);
+        location.reload(); // Reload to refresh the shared users list
+    } catch (error)  {
+        console.error("Error removing shared user:", error);
+        alert(`Failed to remove user ${username}: ${error.message}`);
     }
 }
 
