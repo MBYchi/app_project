@@ -386,7 +386,6 @@ def fetch_user_public_key(request, username):
     Fetch the public key of a user by their username.
     """
     user = get_object_or_404(User, username=username)
-    print(user.profile.public_key)
     # Assuming `public_key` is a field in the User model or its profile
     return JsonResponse({"public_key": user.profile.public_key})
 
