@@ -20,20 +20,28 @@ document.getElementById("create-room-form").addEventListener("submit", async fun
         const publicKey = await pemToCryptoKey(publicKeyPem);
 
         // Generate a symmetric key
-        const symmetricKey = crypto.getRandomValues(new Uint8Array(32));
+        const rawSymmetricKey = crypto.getRandomValues(new Uint8Array(32));
+
+        const symmetricKey = await crypto.subtle.importKey(
+            "raw",
+            rawSymmetricKey,
+            { name: "AES-GCM" },
+            false,
+            ["encrypt", "decrypt"]
+        );
 
         // Encrypt room name and description with symmetric key
         const encryptedName = await encryptAndEncode(roomName, symmetricKey);
         const encryptedDescription = await encryptAndEncode(roomDescription, symmetricKey);
 
         // Encrypt the symmetric key with the user's public key
-        const encryptedKey = await encryptSymmetricKey(symmetricKey, publicKey);
+        const encryptedKey = await encryptSymmetricKey(rawSymmetricKey, publicKey);
 
         // Prepare data to send to the server
         const data = {
             encrypted_name: encryptedName,
             encrypted_description: encryptedDescription,
-            encrypted_key: encryptedKey,
+            encrypted_key: arrayBufferToBase64(encryptedKey),
         };
 
         // Submit data to the server
@@ -96,5 +104,5 @@ async function pemToCryptoKey(pem) {
 }
 
 async function encryptSymmetricKey(key, publicKey) {
-    return base64ToArrayBuffer(crypto.subtle.encrypt({ name: "RSA-OAEP" }, publicKey, key));
+    return crypto.subtle.encrypt({ name: "RSA-OAEP" }, publicKey, key);
 }
