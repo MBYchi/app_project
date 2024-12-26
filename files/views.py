@@ -322,7 +322,7 @@ class RoomView(View):
             "encrypted_name": room.encrypted_name,
             "encrypted_description": room.encrypted_description,
             "privileges": access.privileges,
-            "shared_users": json.dumps(list(shared_users)),
+            "shared_users": json.dumps(list(shared_users), ensure_ascii=False),
         })
 
 @login_required

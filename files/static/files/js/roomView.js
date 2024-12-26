@@ -25,6 +25,14 @@ document.addEventListener("DOMContentLoaded", async function () {
             false,
             ["encrypt", "decrypt"]
         );
+        const decoder = new TextDecoder();
+        const room_name_header = document.getElementById('room-name');
+        const decrypted_room_name = await decryptAndDecode(contextData.encryptedName, symmetricKey, decoder);
+        room_name_header.innerText = decrypted_room_name;
+        const desc_room_p = document.getElementById('room-description');
+        const decrypted_description = await decryptAndDecode(contextData.encryptedDescription, symmetricKey, decoder);
+        desc_room_p.innerText = decrypted_description;
+
         // Fetch files in the room
         const response = await fetch(`/api/room/${roomId}/files/`, {
             method: "GET",
@@ -44,7 +52,6 @@ document.addEventListener("DOMContentLoaded", async function () {
         if (!files || files.length === 0) {
             fileListContainer.innerHTML = "<p>No files in this room.</p>";
         } else {
-            const decoder = new TextDecoder();
 
             for (const file of files) {
                 try {
