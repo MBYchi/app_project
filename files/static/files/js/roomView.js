@@ -1,6 +1,8 @@
+let contextScript;
+let contextData;
 document.addEventListener("DOMContentLoaded", async function () {
-    const contextScript = document.getElementById("context-data");
-    const contextData = JSON.parse(contextScript.textContent);
+    contextScript = document.getElementById("context-data");
+    contextData = JSON.parse(contextScript.textContent);
     console.log(contextData.shared_users);
     const roomId = Number(contextData.roomId);
     const privateKeyString = sessionStorage.getItem("privateKey");
@@ -142,7 +144,7 @@ document.addEventListener("DOMContentLoaded", async function () {
 
 document.getElementById("share-room-form").addEventListener("submit", async (event) => {
     event.preventDefault();
-    const roomId = getRoomIdFromURL();
+    const roomId = contextData.roomId;
     const targetUsername = document.getElementById("target-username").value.trim();
     const privilege = document.getElementById("privilege").value;
 
@@ -395,43 +397,6 @@ async function importPublicKey(pemKey) {
     );
 }
 
-// Function to get CSRF token from cookies
-function getCSRFToken() {
-    const cookies = document.cookie.split(';');
-    for (let cookie of cookies) {
-        const [name, value] = cookie.trim().split('=');
-        if (name === 'csrftoken') {
-            return value;
-        }
-    }
-    return '';
-}
-
-
-async function encryptAndEncode(plaintext, symmetricKey) {
-    const encoder = new TextEncoder();
-    const encodedText = encoder.encode(plaintext);
-
-    // Generate a random initialization vector (IV)
-    const iv = crypto.getRandomValues(new Uint8Array(12)); // AES-GCM standard IV size is 12 bytes
-
-    const ciphertext = await crypto.subtle.encrypt(
-        {
-            name: "AES-GCM",
-            iv: iv,
-        },
-        symmetricKey,
-        encodedText
-    );
-
-    // Concatenate IV and ciphertext, and encode in base64
-    const combined = new Uint8Array(iv.byteLength + ciphertext.byteLength);
-    combined.set(iv);
-    combined.set(new Uint8Array(ciphertext), iv.byteLength);
-
-    return arrayBufferToBase64(combined);
-}
-
 async function encryptFile(file, symmetricKey) {
     const fileBuffer = await file.arrayBuffer();
 
@@ -455,51 +420,11 @@ async function encryptFile(file, symmetricKey) {
     return combined;
 }
 
-function arrayBufferToBase64(buffer) {
-    const binary = String.fromCharCode(...new Uint8Array(buffer));
-    return btoa(binary);
-}
-
 
 // Helper function: Decrypt the room's symmetric key
 async function decryptKey(encryptedKeyBase64, privateKey) {
     const encryptedKey = base64ToArrayBuffer(encryptedKeyBase64);
     return crypto.subtle.decrypt({ name: "RSA-OAEP" }, privateKey, encryptedKey);
-}
-
-function getRoomIdFromURL() {
-    // Ensure the pathname has no trailing slash and split it
-    const urlParts = window.location.pathname.replace(/\/$/, "").split("/");
-
-    // Debugging log to verify the parts of the URL
-    console.log("URL Parts:", urlParts);
-
-    // Assuming the room ID is the second-to-last part of the URL
-    return urlParts[urlParts.length - 1] || null;
-}
-
-async function importPrivateKey(pemKey) {
-    const pemHeader = "-----BEGIN KEY-----";
-    const pemFooter = "-----END KEY-----";
-    const pemContents = pemKey.replace(pemHeader, "").replace(pemFooter, "").replace(/\s+/g, "");
-    const binaryDer = base64ToArrayBuffer(pemContents);
-
-    return crypto.subtle.importKey(
-        "pkcs8",
-        binaryDer,
-        { name: "RSA-OAEP", hash: "SHA-256" },
-        false,
-        ["decrypt"]
-    );
-}
-
-function base64ToArrayBuffer(base64) {
-    const binaryString = window.atob(base64);
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-    }
-    return bytes.buffer;
 }
 
 async function getRoomKey(room_id) {
