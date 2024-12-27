@@ -35,30 +35,20 @@
             <ul id="file-list">
             </ul>
         </div>
-
-        <div id="upload-section">
-            <h3>Upload a File</h3>
-            <form id="upload-file-form">
-                <div class="form-group">
-                    <label for="file-input">Choose a file:</label>
-                    <input type="file" id="file-input" class="form-control">
-                </div>
-                <button type="submit" class="btn btn-primary">Upload</button>
-            </form>
-            <form id="share-room-form">
-                <label for="target-username">Share with Username:</label>
-                <input type="text" id="target-username" name="target-username" required>
-
-                <label for="privilege">Select Privilege:</label>
-                <select id="privilege" name="privilege" required>
-                    <option value="read">Read</option>
-                    <option value="write">Write</option>
-                </select>
-
-                <button type="submit">Share Room</button>
-            </form>
-        </div>
-        <div id="shared-users-section"></div>
+        <center>
+            <div id="upload-section">
+                <h3>Upload a File</h3>
+                <form id="upload-file-form" class="p-4 border rounded bg-light shadow" style="max-width: 500px; margin: 0 auto;">
+                    <div class="form-group">
+                        <label for="file-input" class="form-label fw-bold">Choose a file:</label>
+                        <input type="file" id="file-input" class="form-control" style="max-width: 400px; margin: 0 auto;">
+                    </div>
+                    <button type="submit" class="btn btn-primary">Upload</button>
+                </form>
+            </div>
+            <div class="my-5"></div>
+            <div id="shared-users-section"></div>
+        </center>
     </div>
 
 

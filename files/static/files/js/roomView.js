@@ -88,8 +88,35 @@ document.addEventListener("DOMContentLoaded", async function () {
         if (contextData.priviledges == "admin") {
             const sharedUsers = contextData.shared_users;
             const sharedUsersContainer = document.getElementById("shared-users-section");
+            const sharedSection = document.createElement("div");
             const sharedUsersSection = document.createElement("div");
             sharedUsersContainer.id = "shared-users-section";
+            sharedSection.id = "share_section";
+            sharedSection.innerHTML =`
+            <h3>Share the room</h3>
+                <form id="share-room-form" class="p-4 border rounded bg-light shadow" style="max-width: 500px; margin: 0 auto;">
+                    <h3 class="text-center mb-4">Share Room</h3>
+
+                    <div class="mb-3">
+                        <label for="target-username" class="form-label fw-bold">Share with Username:</label>
+                        <input type="text" id="target-username" name="target-username" class="form-control" placeholder="Enter username" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="privilege" class="form-label fw-bold">Select Privilege:</label>
+                        <select id="privilege" name="privilege" class="form-select" required>
+                            <option value="" disabled selected>Choose privilege</option>
+                            <option value="read">Read</option>
+                            <option value="write">Write</option>
+                        </select>
+                    </div>
+
+                    <div class="text-center">
+                        <button class="btn btn-primary w-100 share_room">Share Room</button>
+                    </div>
+                </form>
+            `;
+            sharedUsersContainer.appendChild(sharedSection);
             sharedUsersSection.innerHTML = "<h3>Shared Users</h3>";
 
             if (!sharedUsers || sharedUsers.length === 0) {
@@ -115,6 +142,20 @@ document.addEventListener("DOMContentLoaded", async function () {
             }
 
             sharedUsersContainer.appendChild(sharedUsersSection);
+
+             // Adding the event listener after the form is appended to the document
+            const shareRoomForm = document.getElementById('share-room-form');
+
+            shareRoomForm.addEventListener('submit', function (event) {
+                event.preventDefault(); // Prevent form submission
+
+                const targetUsername = document.getElementById('target-username').value;
+                const privilege = document.getElementById('privilege').value;
+
+                // Assuming there's a function to handle the room sharing logic
+                shareRoomWithUser(contextData.roomId, targetUsername, privilege);
+            });
+
         }
 
         // Add event listener for download buttons
@@ -142,19 +183,19 @@ document.addEventListener("DOMContentLoaded", async function () {
     }
 });
 
-document.getElementById("share-room-form").addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const roomId = contextData.roomId;
-    const targetUsername = document.getElementById("target-username").value.trim();
-    const privilege = document.getElementById("privilege").value;
-
-    if (!targetUsername || !privilege) {
-        alert("Please provide all required details.");
-        return;
-    }
-
-    await shareRoomWithUser(roomId, targetUsername, privilege);
-});
+// document.getElementById("share-room-form").addEventListener("submit", async (event) => {
+//     event.preventDefault();
+//     const roomId = contextData.roomId;
+//     const targetUsername = document.getElementById("target-username").value.trim();
+//     const privilege = document.getElementById("privilege").value;
+//
+//     if (!targetUsername || !privilege) {
+//         alert("Please provide all required details.");
+//         return;
+//     }
+//
+//     await shareRoomWithUser(roomId, targetUsername, privilege);
+// });
 
 // Download and decrypt file
 async function downloadFile(hash, symmetricKey) {
@@ -352,6 +393,7 @@ async function shareRoomWithUser(roomId, targetUsername, privilege) {
         }
 
         alert("Room shared successfully.");
+        location.reload(true)
     } catch (error) {
         console.error("Error sharing the room:", error);
         alert(error.message || "An error occurred while sharing the room.");
