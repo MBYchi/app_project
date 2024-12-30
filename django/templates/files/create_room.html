@@ -1,0 +1,86 @@
+{% extends 'base.html' %}
+
+{% block style %}
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'files/css/custom.css' %}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .navbar-brand {
+            font-size: 1.75rem;
+            font-weight: bold;
+            color: #343a40;
+        }
+        .container {
+            margin-top: 50px;
+        }
+        h2 {
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-control {
+            border-radius: 5px;
+        }
+        .btn-primary {
+            background-color: #007bff;
+            border-color: #007bff;
+            font-size: 1rem;
+            border-radius: 5px;
+            padding: 10px 15px;
+        }
+        .btn-primary:hover {
+            background-color: #0056b3;
+            border-color: #0056b3;
+        }
+        .status-message {
+            display: none;
+            margin-top: 20px;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+<nav class="navbar navbar-expand-lg bg-body-tertiary shadow-sm">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="{% url 'home' %}">BLH</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                <li class="nav-item">
+                    <a class="nav-link active" aria-current="page" href="{% url 'home' %}">Home</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'create_room_view' %}">Create encrypted room</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'list_rooms_view' %}">List your rooms</a>
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>
+<div class="container">
+    <h2 class="text-center">Create Room</h2>
+    <form id="create-room-form">
+        {% csrf_token %}
+        <div class="form-group">
+            <label for="room-name">Room Name</label>
+            <input type="text" id="room-name" class="form-control" placeholder="Enter room name" required>
+        </div>
+        <div class="form-group">
+            <label for="room-description">Room Description</label>
+            <textarea id="room-description" class="form-control" placeholder="Enter room description" required></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary w-100">Create Room</button>
+    </form>
+    <p id="status-message" class="status-message alert alert-info">Room creation status will be shown here.</p>
+</div>
+
+<script src="{% static 'files/js/importPublicKey.js' %}"></script>
+<script src="{% static 'files/js/functions.js' %}"></script>
+<script src="{% static 'files/js/createRoom.js' %}"></script>
+{% endblock %}
