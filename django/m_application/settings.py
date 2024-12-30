@@ -31,6 +31,7 @@ SECRET_KEY = os.getenv('SECRET_KEY')
 DEBUG = os.getenv('DEBUG') == 'True'
 
 ALLOWED_HOSTS = ["localhost", "127.0.0.1", "*"]
+CSRF_TRUSTED_ORIGINS = ['https://localhost', 'https://127.0.0.1']
 
 
 # Application definition
@@ -146,10 +147,10 @@ STATIC_URL = '/static/'
 
 # Jeśli chcesz, aby pliki były poza folderami aplikacji:
 STATICFILES_DIRS = [
-    BASE_DIR / "static",
+    BASE_DIR / "staticfiles",
 ]
 
-STATIC_ROOT = BASE_DIR / "staticfiles"
+STATIC_ROOT = BASE_DIR / "static"
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field

@@ -1,26 +1,12 @@
 version: '3.8'
 
 services:
-  django:
-    build:
-      context: ./django
-    container_name: django
-    volumes:
-      - ./django:/app
-    ports:
-      - "8000:8000"
-    depends_on:
-      - mysql
-      - minio
-
   nginx:
     build:
       context: ./nginx
     container_name: nginx
     ports:
       - "443:443"
-    depends_on:
-      - django
 
   minio:
     image: minio/minio:latest

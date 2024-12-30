@@ -15,6 +15,11 @@ RUN apt-get update && apt-get install -y \
 # Set work directory
 WORKDIR /app
 
+
+COPY start.sh /start.sh
+
+RUN chmod +x /start.sh
+
 # Install Python dependencies
 COPY requirements.txt /app/
 RUN pip install --no-cache-dir -r requirements.txt
@@ -24,4 +29,7 @@ COPY . /app/
 
 # Expose port 8000 and run the server
 EXPOSE 8000
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--timeout", "60", "m_application.wsgi:application"]
+
+RUN python manage.py collectstatic --noinput
+
+CMD ["/start.sh"]
