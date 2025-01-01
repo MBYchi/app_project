@@ -295,12 +295,9 @@ def upload_file_to_room(request, room_id):
 @login_required
 def download_file(request, file_hash):
     try:
-        print("I'm here")
         file_record = File.objects.get(hash = file_hash)
-        print("file found")
         print(file_record.id)
         room = Contains.objects.get(file_id = file_record).room_id
-        print("room found")
         # Verify the user has access to the room
         if not Access.objects.filter(user_profile=request.user, room=room).exists():
             return JsonResponse({"error": "No access to this room."}, status=403)
