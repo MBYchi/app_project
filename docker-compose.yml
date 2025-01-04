@@ -1,6 +1,13 @@
 version: '3.8'
 
 services:
+  nginx:
+    build:
+      context: ./nginx
+    container_name: nginx
+    ports:
+      - "443:443"
+
   minio:
     image: minio/minio:latest
     container_name: minio
@@ -14,6 +21,16 @@ services:
       - "9001:9001"                     # Порт для панели управления MinIO
     command: server /data --console-address ":9001"
 
+  mc:
+    image: minio/mc
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      until (mc alias set local http://minio:9000 ${MINIO_ACCESS_KEY} ${MINIO_SECRET_KEY}) do sleep 5; done &&
+      mc mb local/${MINIO_BUCKET_NAME}"
+  
+
   mysql:
     image: mysql:latest
     container_name: mysql
@@ -23,9 +40,10 @@ services:
       MYSQL_USER: ${DB_USER}
       MYSQL_PASSWORD: ${DB_PASSWORD}
     ports:
-      - "3306:3306"                     # Пробрасываем порт MySQL
+      - "9036:3306"                     # Пробрасываем порт MySQL
     volumes:
       - mysql_data:/var/lib/mysql       # Храним данные вне контейнера
+
 volumes:
   minio_data:
   mysql_data:

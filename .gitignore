@@ -2,3 +2,6 @@
 .venv
 .env
 venv/
+staticfiles
+staticfiles/
+certs/
