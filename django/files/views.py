@@ -295,9 +295,9 @@ def upload_file_to_room(request, room_id):
 @login_required
 def download_file(request, file_hash):
     try:
-        file_record = File.objects.get(hash = file_hash)
-        print(file_record.id)
-        room = Contains.objects.get(file_id = file_record).room_id
+        file_record = File.objects.get(hash=file_hash)
+        room = Contains.objects.get(file_id=file_record).room_id
+
         # Verify the user has access to the room
         if not Access.objects.filter(user_profile=request.user, room=room).exists():
             return JsonResponse({"error": "No access to this room."}, status=403)
@@ -320,8 +320,15 @@ def download_file(request, file_hash):
                 Params={'Bucket': bucket_name, 'Key': object_key},
                 ExpiresIn=3600,  # URL valid for 1 hour
             )
+
+            # Replace localhost with the public domain or IP
+            presigned_url_nginx = presigned_url.replace(
+                f"http://{settings.MINIO_ENDPOINT}",
+                f"https://{settings.PUBLIC_DOMAIN}/minio"
+            )
+
             return JsonResponse({
-                "download_url": presigned_url,
+                "download_url": presigned_url_nginx,
                 "encrypted_name": file_record.name  # Encrypted file name
             }, status=200)
         except ClientError as e:

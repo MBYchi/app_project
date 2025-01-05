@@ -16,7 +16,7 @@ from dotenv import load_dotenv
 import m_application
 
 
-
+PUBLIC_DOMAIN = "192.168.1.27"
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(str(BASE_DIR)+'/.env')

@@ -41,8 +41,8 @@ services:
     volumes:
       - minio_data:/data
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "127.0.0.1:9000:9000"                     # Порт для API
+      - "127.0.0.1:9001:9001"                     # Порт для панели управления MinIO
     command: server /data --console-address ":9001"
     networks:
       - app_network
