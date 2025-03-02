@@ -16,7 +16,7 @@ from dotenv import load_dotenv
 import m_application
 
 
-
+PUBLIC_DOMAIN = "192.168.1.27"
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(str(BASE_DIR)+'/.env')
@@ -147,10 +147,10 @@ STATIC_URL = '/static/'
 
 # Jeśli chcesz, aby pliki były poza folderami aplikacji:
 STATICFILES_DIRS = [
-    BASE_DIR / "staticfiles",
+    BASE_DIR / "static",
 ]
 
-STATIC_ROOT = BASE_DIR / "static"
+STATIC_ROOT = BASE_DIR / "staticfiles"
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field

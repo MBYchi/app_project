@@ -1,12 +1,36 @@
 version: '3.8'
 
 services:
+  django:
+    build:
+      context: .
+      dockerfile: django/Dockerfile
+    container_name: django_app
+    command: ["bash", "start.sh"]
+    volumes:
+      - ./django:/app
+      - static_data:/app/static
+      - media_data:/app/media
+    env_file:
+      - .env
+    depends_on:
+      - mysql
+      - minio
+    ports:
+      - "8000:8000"
+    networks:
+      - app_network
+
   nginx:
     build:
       context: ./nginx
     container_name: nginx
     ports:
       - "443:443"
+    depends_on:
+      - django
+    networks:
+      - app_network
 
   minio:
     image: minio/minio:latest
@@ -17,9 +41,11 @@ services:
     volumes:
       - minio_data:/data
     ports:
-      - "9000:9000"                     # Порт для API
-      - "9001:9001"                     # Порт для панели управления MinIO
+      - "127.0.0.1:9000:9000"                     # Порт для API
+      - "127.0.0.1:9001:9001"                     # Порт для панели управления MinIO
     command: server /data --console-address ":9001"
+    networks:
+      - app_network
 
   mc:
     image: minio/mc
@@ -29,6 +55,8 @@ services:
       /bin/sh -c "
       until (mc alias set local http://minio:9000 ${MINIO_ACCESS_KEY} ${MINIO_SECRET_KEY}) do sleep 5; done &&
       mc mb local/${MINIO_BUCKET_NAME}"
+    networks:
+      - app_network
   
 
   mysql:
@@ -40,10 +68,17 @@ services:
       MYSQL_USER: ${DB_USER}
       MYSQL_PASSWORD: ${DB_PASSWORD}
     ports:
-      - "9036:3306"                     # Пробрасываем порт MySQL
+      - "3306:3306"
     volumes:
-      - mysql_data:/var/lib/mysql       # Храним данные вне контейнера
+      - mysql_data:/var/lib/mysql
+    networks:
+      - app_network
 
 volumes:
+  static_data:
+  media_data:
   minio_data:
   mysql_data:
+
+networks:
+  app_network:
